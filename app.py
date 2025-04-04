@@ -335,7 +335,7 @@ def main():
         st.session_state.designation = None
 
     if not st.session_state.authenticated:
-        st.title("Complaint Ticket System - Login")
+        st.title("Sales Login")
         
         employee_names = Person['Employee Name'].tolist()
         employee_name = st.selectbox("Select Your Name", employee_names, key="employee_select")
