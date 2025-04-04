@@ -318,7 +318,7 @@ def main():
         
         employee_names = Person['Employee Name'].tolist()
         employee_name = st.selectbox("Select Your Name", employee_names, key="employee_select")
-        passkey = st.text_input("Enter Your Password", type="password", key="passkey_input")
+        passkey = st.text_input("Password", type="password", key="passkey_input")
         
         if st.button("Log in", key="login_button"):
             if authenticate_employee(employee_name, passkey):
