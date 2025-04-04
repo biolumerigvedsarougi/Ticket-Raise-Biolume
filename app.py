@@ -22,6 +22,8 @@ COMPLAINT_SHEET_COLUMNS = [
     "Raised By (Employee Name)",
     "Raised By (Employee Code)",
     "Raised By (Designation)",
+    "Raised By (Email)",
+    "Raised By (Phone)",
     "Concerned Person",
     "Concerned Person Code",
     "Concerned Person Designation",
@@ -75,6 +77,21 @@ def raise_complaint_page(employee_name, employee_code, designation):
     st.title("Raise New Complaint Ticket")
     
     with st.form("complaint_form"):
+        # Employee contact info
+        col1, col2 = st.columns(2)
+        with col1:
+            employee_email = st.text_input(
+                "Your Email*",
+                placeholder="your.email@company.com",
+                help="Please provide your contact email"
+            )
+        with col2:
+            employee_phone = st.text_input(
+                "Your Phone Number*",
+                placeholder="9876543210",
+                help="Please provide your contact number"
+            )
+        
         # Concerned person selection
         concerned_person = st.selectbox(
             "Concerned Person*",
@@ -120,8 +137,12 @@ def raise_complaint_page(employee_name, employee_code, designation):
         submitted = st.form_submit_button("Submit Complaint")
         
         if submitted:
-            if not subject or not details:
+            if not subject or not details or not employee_email or not employee_phone:
                 st.error("Please fill in all required fields (marked with *)")
+            elif not employee_email.strip() or "@" not in employee_email:
+                st.error("Please enter a valid email address")
+            elif not employee_phone.strip().isdigit() or len(employee_phone.strip()) < 10:
+                st.error("Please enter a valid 10-digit phone number")
             else:
                 with st.spinner("Submitting your complaint..."):
                     ticket_id = generate_ticket_id()
@@ -133,6 +154,8 @@ def raise_complaint_page(employee_name, employee_code, designation):
                         "Raised By (Employee Name)": employee_name,
                         "Raised By (Employee Code)": employee_code,
                         "Raised By (Designation)": designation,
+                        "Raised By (Email)": employee_email.strip(),
+                        "Raised By (Phone)": employee_phone.strip(),
                         "Concerned Person": concerned_person,
                         "Concerned Person Code": concerned_details['Employee Code'],
                         "Concerned Person Designation": concerned_details['Designation'],
@@ -247,9 +270,11 @@ def view_complaints_page(employee_name):
                 # Main content
                 col1, col2 = st.columns(2)
                 with col1:
+                    st.write(f"**Your Contact Email:** {row['Raised By (Email)']}")
+                    st.write(f"**Your Phone Number:** {row['Raised By (Phone)']}")
                     st.write(f"**Category:** {row['Category']}")
-                    st.write(f"**Concerned Person:** {row['Concerned Person']} ({row['Concerned Person Designation']})")
                 with col2:
+                    st.write(f"**Concerned Person:** {row['Concerned Person']} ({row['Concerned Person Designation']})")
                     st.write(f"**Priority:** {row['Priority']}")
                     if row['Date Resolved']:
                         st.write(f"**Date Resolved:** {row['Date Resolved']}")
