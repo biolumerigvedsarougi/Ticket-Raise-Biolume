@@ -4,7 +4,6 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 import uuid
-import os
 
 # Hide Streamlit style elements
 hide_streamlit_style = """
@@ -34,8 +33,7 @@ COMPLAINT_SHEET_COLUMNS = [
     "Time Raised",
     "Resolution Notes",
     "Date Resolved",
-    "Priority",
-    "Attachment Path"
+    "Priority"
 ]
 
 # Categories and priorities
@@ -53,20 +51,8 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # Load employee data
 Person = pd.read_csv('Invoice - Person.csv')
 
-# Create directories for attachments
-os.makedirs("complaint_attachments", exist_ok=True)
-
 def generate_ticket_id():
     return f"TKT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
-
-def save_attachment(uploaded_file):
-    if uploaded_file is not None:
-        file_ext = os.path.splitext(uploaded_file.name)[1]
-        file_path = os.path.join("complaint_attachments", f"{str(uuid.uuid4())}{file_ext}")
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        return file_path
-    return None
 
 def log_complaint_to_gsheet(conn, complaint_data):
     try:
@@ -129,12 +115,6 @@ def raise_complaint_page(employee_name, employee_code, designation):
             help="Include all relevant details to help resolve your issue quickly"
         )
         
-        attachment = st.file_uploader(
-            "Attachment (if any)",
-            type=["jpg", "jpeg", "png", "pdf", "doc", "docx", "xls", "xlsx"],
-            help="Upload any supporting documents or images"
-        )
-        
         st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
         
         submitted = st.form_submit_button("Submit Complaint")
@@ -147,7 +127,6 @@ def raise_complaint_page(employee_name, employee_code, designation):
                     ticket_id = generate_ticket_id()
                     current_date = datetime.now().strftime("%d-%m-%Y")
                     current_time = datetime.now().strftime("%H:%M:%S")
-                    attachment_path = save_attachment(attachment)
                     
                     complaint_data = {
                         "Ticket ID": ticket_id,
@@ -165,8 +144,7 @@ def raise_complaint_page(employee_name, employee_code, designation):
                         "Time Raised": current_time,
                         "Resolution Notes": "",
                         "Date Resolved": "",
-                        "Priority": priority,
-                        "Attachment Path": attachment_path if attachment_path else ""
+                        "Priority": priority
                     }
                     
                     # Convert to DataFrame
@@ -280,30 +258,6 @@ def view_complaints_page(employee_name):
                 st.write("**Details:**")
                 st.write(row['Details'])
                 
-                # Attachment
-                if row['Attachment Path'] and os.path.exists(row['Attachment Path']):
-                    st.write("---")
-                    st.write("**Attachment:**")
-                    file_ext = os.path.splitext(row['Attachment Path'])[1].lower()
-                    
-                    if file_ext in ['.jpg', '.jpeg', '.png']:
-                        st.image(row['Attachment Path'], width=300)
-                    elif file_ext == '.pdf':
-                        with open(row['Attachment Path'], "rb") as f:
-                            st.download_button(
-                                "Download PDF",
-                                f,
-                                file_name=f"attachment_{row['Ticket ID']}.pdf",
-                                mime="application/pdf"
-                            )
-                    else:
-                        with open(row['Attachment Path'], "rb") as f:
-                            st.download_button(
-                                "Download File",
-                                f,
-                                file_name=f"attachment_{row['Ticket ID']}{file_ext}"
-                            )
-                
                 # Resolution notes if resolved
                 if row['Status'] == "Resolved" and row['Resolution Notes']:
                     st.write("---")
@@ -335,7 +289,7 @@ def main():
         st.session_state.designation = None
 
     if not st.session_state.authenticated:
-        st.title("Sales Login")
+        st.title("Complaint Ticket System - Login")
         
         employee_names = Person['Employee Name'].tolist()
         employee_name = st.selectbox("Select Your Name", employee_names, key="employee_select")
