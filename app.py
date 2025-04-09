@@ -51,10 +51,6 @@ COMPLAINT_CATEGORIES = [
 
 PRIORITY_LEVELS = ["Low", "Medium", "High", "Critical"]
 
-# Admin credentials (in a real app, use proper authentication)
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"  # In production, use environment variables and proper hashing
-
 # Establish Google Sheets connection
 conn = st.connection("gsheets", type=GSheetsConnection)
 
@@ -80,9 +76,6 @@ def authenticate_employee(employee_name, passkey):
         return str(passkey) == str(employee_code)
     except:
         return False
-
-def authenticate_admin(username, password):
-    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
 
 def raise_complaint_page(employee_name, employee_code, designation):
     st.title("Raise New Complaint Ticket")
@@ -314,190 +307,9 @@ def view_complaints_page(employee_name):
     except Exception as e:
         st.error(f"Error retrieving complaints: {str(e)}")
 
-def admin_dashboard():
-    st.title("Admin Dashboard")
-    
-    try:
-        # Read all complaints data
-        complaints_data = conn.read(worksheet="Complaints", usecols=list(range(len(COMPLAINT_SHEET_COLUMNS))), ttl=5)
-        complaints_data = complaints_data.dropna(how="all")
-        
-        if complaints_data.empty:
-            st.info("No complaints found in the system.")
-            return
-        
-        # Overall statistics
-        st.subheader("Overall Statistics")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Complaints", len(complaints_data))
-        col2.metric("Open Complaints", len(complaints_data[complaints_data['Status'] == "Open"]))
-        col3.metric("Resolved Complaints", len(complaints_data[complaints_data['Status'] == "Resolved"]))
-        col4.metric("Unique Employees", len(complaints_data['Raised By (Employee Name)'].unique()))
-        
-        # Status distribution
-        st.subheader("Complaint Status Distribution")
-        status_counts = complaints_data['Status'].value_counts()
-        st.bar_chart(status_counts)
-        
-        # Category distribution
-        st.subheader("Complaints by Category")
-        category_counts = complaints_data['Category'].value_counts()
-        st.bar_chart(category_counts)
-        
-        # Priority distribution
-        st.subheader("Complaints by Priority")
-        priority_counts = complaints_data['Priority'].value_counts()
-        st.bar_chart(priority_counts)
-        
-        # Time series of complaints
-        st.subheader("Complaints Over Time")
-        if 'Date Raised' in complaints_data.columns:
-            try:
-                complaints_data['Date Raised'] = pd.to_datetime(complaints_data['Date Raised'], format='%d-%m-%Y')
-                time_series = complaints_data.groupby('Date Raised').size()
-                st.line_chart(time_series)
-            except:
-                st.warning("Could not parse dates for time series chart")
-        
-        # Detailed view with filtering
-        st.subheader("All Complaints")
-        
-        # Filter options
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            status_filter = st.selectbox(
-                "Filter by Status",
-                ["All", "Open", "Resolved"],
-                key="admin_status_filter"
-            )
-        with col2:
-            priority_filter = st.selectbox(
-                "Filter by Priority",
-                ["All"] + PRIORITY_LEVELS,
-                key="admin_priority_filter"
-            )
-        with col3:
-            category_filter = st.selectbox(
-                "Filter by Category",
-                ["All"] + COMPLAINT_CATEGORIES,
-                key="admin_category_filter"
-            )
-        
-        # Apply filters
-        filtered_data = complaints_data.copy()
-        if status_filter != "All":
-            filtered_data = filtered_data[filtered_data['Status'] == status_filter]
-        if priority_filter != "All":
-            filtered_data = filtered_data[filtered_data['Priority'] == priority_filter]
-        if category_filter != "All":
-            filtered_data = filtered_data[filtered_data['Category'] == category_filter]
-        
-        # Display filtered complaints
-        st.dataframe(filtered_data, use_container_width=True)
-        
-        # Download all complaints
-        csv = filtered_data.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            "Download Filtered Data",
-            csv,
-            "all_complaints.csv",
-            "text/csv",
-            key='download-all-complaints'
-        )
-        
-    except Exception as e:
-        st.error(f"Error loading complaint data: {str(e)}")
-
-def manage_complaints():
-    st.title("Manage Complaints")
-    
-    try:
-        # Read all complaints data
-        complaints_data = conn.read(worksheet="Complaints", usecols=list(range(len(COMPLAINT_SHEET_COLUMNS))), ttl=5)
-        complaints_data = complaints_data.dropna(how="all")
-        
-        if complaints_data.empty:
-            st.info("No complaints found in the system.")
-            return
-        
-        # Filter only open complaints for management
-        open_complaints = complaints_data[complaints_data['Status'] == "Open"]
-        
-        if open_complaints.empty:
-            st.success("All complaints have been resolved!")
-            return
-        
-        st.subheader("Open Complaints")
-        
-        for _, row in open_complaints.iterrows():
-            with st.expander(f"{row['Subject']} - {row['Priority']} (Raised by: {row['Raised By (Employee Name)']})"):
-                st.markdown(f"""
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>Ticket ID:</strong> {row['Ticket ID']}<br>
-                        <strong>Date Raised:</strong> {row['Date Raised']} at {row['Time Raised']}
-                    </div>
-                    <div style="color: red; font-weight: bold;">
-                        {row['Status']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.write("---")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**Raised By:** {row['Raised By (Employee Name)']} ({row['Raised By (Designation)']})")
-                    st.write(f"**Employee Code:** {row['Raised By (Employee Code)']}")
-                    st.write(f"**Contact Email:** {row['Raised By (Email)']}")
-                    st.write(f"**Phone:** {row['Raised By (Phone)']}")
-                with col2:
-                    st.write(f"**Category:** {row['Category']}")
-                    st.write(f"**Priority:** {row['Priority']}")
-                    st.write(f"**Concerned Person:** {row['Concerned Person']} ({row['Concerned Person Designation']})")
-                
-                st.write("---")
-                st.write("**Details:**")
-                st.write(row['Details'])
-                
-                # Resolution form
-                with st.form(key=f"resolve_form_{row['Ticket ID']}"):
-                    resolution_notes = st.text_area(
-                        "Resolution Notes*",
-                        height=150,
-                        help="Please provide details about how this complaint was resolved"
-                    )
-                    
-                    resolved = st.form_submit_button("Mark as Resolved")
-                    
-                    if resolved:
-                        if not resolution_notes:
-                            st.error("Please provide resolution notes")
-                        else:
-                            # Update the complaint status
-                            complaints_data.loc[
-                                complaints_data['Ticket ID'] == row['Ticket ID'],
-                                ['Status', 'Resolution Notes', 'Date Resolved']
-                            ] = [
-                                "Resolved",
-                                resolution_notes,
-                                datetime.now().strftime("%d-%m-%Y")
-                            ]
-                            
-                            # Save back to Google Sheets
-                            conn.update(worksheet="Complaints", data=complaints_data)
-                            st.success("Complaint marked as resolved!")
-                            st.rerun()
-        
-    except Exception as e:
-        st.error(f"Error managing complaints: {str(e)}")
-
 def main():
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
-    if 'admin' not in st.session_state:
-        st.session_state.admin = False
     if 'employee_name' not in st.session_state:
         st.session_state.employee_name = None
     if 'employee_code' not in st.session_state:
@@ -505,38 +317,23 @@ def main():
     if 'designation' not in st.session_state:
         st.session_state.designation = None
 
-    if not st.session_state.authenticated and not st.session_state.admin:
+    if not st.session_state.authenticated:
         st.title("Ticket System - Login")
         
-        login_type = st.radio("Login as:", ("Employee", "Admin"), horizontal=True)
+        employee_names = Person['Employee Name'].tolist()
+        employee_name = st.selectbox("Select Your Name", employee_names, key="employee_select")
+        passkey = st.text_input("Password", type="password", key="passkey_input")
         
-        if login_type == "Employee":
-            employee_names = Person['Employee Name'].tolist()
-            employee_name = st.selectbox("Select Your Name", employee_names, key="employee_select")
-            passkey = st.text_input("Password", type="password", key="passkey_input")
-            
-            if st.button("Log in", key="login_button"):
-                if authenticate_employee(employee_name, passkey):
-                    st.session_state.authenticated = True
-                    st.session_state.employee_name = employee_name
-                    st.session_state.employee_code = Person[Person['Employee Name'] == employee_name]['Employee Code'].values[0]
-                    st.session_state.designation = Person[Person['Employee Name'] == employee_name]['Designation'].values[0]
-                    st.rerun()
-                else:
-                    st.error("Invalid Employee Code. Please try again.")
-        else:
-            username = st.text_input("Admin Username", key="admin_username")
-            password = st.text_input("Admin Password", type="password", key="admin_password")
-            
-            if st.button("Admin Login", key="admin_login_button"):
-                if authenticate_admin(username, password):
-                    st.session_state.admin = True
-                    st.rerun()
-                else:
-                    st.error("Invalid admin credentials")
-    
-    elif st.session_state.authenticated:
-        # Employee view
+        if st.button("Log in", key="login_button"):
+            if authenticate_employee(employee_name, passkey):
+                st.session_state.authenticated = True
+                st.session_state.employee_name = employee_name
+                st.session_state.employee_code = Person[Person['Employee Name'] == employee_name]['Employee Code'].values[0]
+                st.session_state.designation = Person[Person['Employee Name'] == employee_name]['Designation'].values[0]
+                st.rerun()
+            else:
+                st.error("Invalid Employee Code. Please try again.")
+    else:
         st.sidebar.title(f"Welcome, {st.session_state.employee_name}")
         st.sidebar.write(f"Designation: {st.session_state.designation}")
         st.sidebar.write(f"Employee Code: {st.session_state.employee_code}")
@@ -557,19 +354,6 @@ def main():
             )
         with tab2:
             view_complaints_page(st.session_state.employee_name)
-    
-    elif st.session_state.admin:
-        # Admin view
-        st.sidebar.title("Admin Panel")
-        if st.sidebar.button("Logout"):
-            st.session_state.admin = False
-            st.rerun()
-        
-        tab1, tab2 = st.tabs(["Dashboard", "Manage Complaints"])
-        with tab1:
-            admin_dashboard()
-        with tab2:
-            manage_complaints()
 
 if __name__ == "__main__":
     main()
