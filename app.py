@@ -24,9 +24,6 @@ COMPLAINT_SHEET_COLUMNS = [
     "Raised By (Designation)",
     "Raised By (Email)",
     "Raised By (Phone)",
-    "Concerned Person",
-    "Concerned Person Code",
-    "Concerned Person Designation",
     "Category",
     "Subject",
     "Details",
@@ -92,16 +89,6 @@ def raise_complaint_page(employee_name, employee_code, designation):
                 help="Please provide your contact number"
             )
         
-        # Concerned person selection
-        concerned_person = st.selectbox(
-            "Concerned Person*",
-            Person['Employee Name'].tolist(),
-            help="Select the person/department you're raising this complaint about"
-        )
-        
-        # Get concerned person details
-        concerned_details = Person[Person['Employee Name'] == concerned_person].iloc[0]
-        
         # Complaint details
         col1, col2 = st.columns(2)
         with col1:
@@ -156,9 +143,6 @@ def raise_complaint_page(employee_name, employee_code, designation):
                         "Raised By (Designation)": designation,
                         "Raised By (Email)": employee_email.strip(),
                         "Raised By (Phone)": employee_phone.strip(),
-                        "Concerned Person": concerned_person,
-                        "Concerned Person Code": concerned_details['Employee Code'],
-                        "Concerned Person Designation": concerned_details['Designation'],
                         "Category": category,
                         "Subject": subject,
                         "Details": details,
@@ -274,7 +258,6 @@ def view_complaints_page(employee_name):
                     st.write(f"**Your Phone Number:** {row['Raised By (Phone)']}")
                     st.write(f"**Category:** {row['Category']}")
                 with col2:
-                    st.write(f"**Concerned Person:** {row['Concerned Person']} ({row['Concerned Person Designation']})")
                     st.write(f"**Priority:** {row['Priority']}")
                     if row['Date Resolved']:
                         st.write(f"**Date Resolved:** {row['Date Resolved']}")
