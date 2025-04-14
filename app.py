@@ -74,7 +74,7 @@ def authenticate_employee(employee_name, passkey):
         return False
 
 def raise_complaint_page(employee_name, employee_code, designation):
-    st.title("Raise New Complaint Ticket")
+    st.title("Raise Ticket")
     
     with st.form("complaint_form"):
         # Employee contact info
@@ -121,20 +121,20 @@ def raise_complaint_page(employee_name, employee_code, designation):
         subject = st.text_input(
             "Subject*",
             max_chars=100,
-            placeholder="Brief description of your complaint",
+            placeholder="Brief description of your Ticket",
             help="Keep it concise but descriptive"
         )
         
         details = st.text_area(
             "Details*",
             height=200,
-            placeholder="Please provide detailed information about your complaint...",
+            placeholder="Please provide detailed information about your Ticket",
             help="Include all relevant details to help resolve your issue quickly"
         )
         
         st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
         
-        submitted = st.form_submit_button("Submit Complaint")
+        submitted = st.form_submit_button("Submit Ticket")
         
         if submitted:
             if not subject or not details or not employee_email or not employee_phone:
@@ -144,7 +144,7 @@ def raise_complaint_page(employee_name, employee_code, designation):
             elif not employee_phone.strip().isdigit() or len(employee_phone.strip()) < 10:
                 st.error("Please enter a valid 10-digit phone number")
             else:
-                with st.spinner("Submitting your complaint..."):
+                with st.spinner("Submitting your Ticket"):
                     ticket_id = generate_ticket_id()
                     current_date = datetime.now().strftime("%d-%m-%Y")
                     current_time = datetime.now().strftime("%H:%M:%S")
@@ -188,7 +188,7 @@ def raise_complaint_page(employee_name, employee_code, designation):
                         st.error(f"Failed to submit complaint: {error}")
 
 def view_complaints_page(employee_name):
-    st.title("My Complaint Tickets")
+    st.title("Previous Tickets")
     
     try:
         # Read complaints data
@@ -196,7 +196,7 @@ def view_complaints_page(employee_name):
         complaints_data = complaints_data.dropna(how="all")
         
         if complaints_data.empty:
-            st.info("No complaints found in the system.")
+            st.info("No Tickets found in the system.")
             return
             
         # Filter for current employee
@@ -341,7 +341,7 @@ def main():
             st.session_state.designation = None
             st.rerun()
         
-        tab1, tab2 = st.tabs(["Raise New Complaint", "My Complaints"])
+        tab1, tab2 = st.tabs(["Raise Ticket", "Previous Ticket"])
         with tab1:
             raise_complaint_page(
                 st.session_state.employee_name,
