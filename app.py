@@ -93,7 +93,7 @@ def raise_ticket_page(employee_name, employee_code, designation):
         col1, col2 = st.columns(2)
         with col1:
             category = st.selectbox(
-                "Category*",
+                "Department",
                 TICKET_CATEGORIES,
                 help="Select the most relevant category for your ticket"
             )
