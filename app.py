@@ -40,9 +40,16 @@ COMPLAINT_SHEET_COLUMNS = [
 
 # Categories and priorities
 COMPLAINT_CATEGORIES = [
-    "Expense", "Salary", "Complaint", "Product Issues", 
-    "Product Damage", "Product Missing", "Product Delivery", 
-    "HR", "Attendance", "Facilities", "IT Support", "Other"
+    "HR Department",
+    "MIS & Back Office",
+    "Digital & Marketing",
+    "Travel",
+    "Co-founders",
+    "Accounts",
+    "Admin Department",
+    "Product-Damage",
+    "Product-Delivery/Missing/Quantity",
+    "Others"
 ]
 
 PRIORITY_LEVELS = ["Low", "Medium", "High", "Critical"]
