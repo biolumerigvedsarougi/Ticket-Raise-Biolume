@@ -112,7 +112,7 @@ def raise_complaint_page(employee_name, employee_code, designation):
             )
         with col2:
             priority = st.selectbox(
-                "Priority*",
+                "Priority",
                 PRIORITY_LEVELS,
                 index=1,  # Default to Medium
                 help="How urgent is this issue?"
