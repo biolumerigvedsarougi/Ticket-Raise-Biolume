@@ -75,7 +75,7 @@ def authenticate_employee(employee_name, passkey):
         return False
 
 def raise_complaint_page(employee_name, employee_code, designation):
-    st.title("Raise New Complaint Ticket")
+    st.title("Raise Ticket")
     
     with st.form("complaint_form"):
         # Employee contact info
@@ -125,7 +125,7 @@ def raise_complaint_page(employee_name, employee_code, designation):
         
         st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
         
-        submitted = st.form_submit_button("Submit Complaint")
+        submitted = st.form_submit_button("Submit Ticket")
         
         if submitted:
             if not subject or not details or not employee_email or not employee_phone:
