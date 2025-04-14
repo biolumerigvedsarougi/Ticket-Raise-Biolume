@@ -75,7 +75,7 @@ def authenticate_employee(employee_name, passkey):
         return False
 
 def raise_complaint_page(employee_name, employee_code, designation):
-    st.title("Raise Ticket")
+    st.title("Raise New Complaint Ticket")
     
     with st.form("complaint_form"):
         # Employee contact info
@@ -125,7 +125,7 @@ def raise_complaint_page(employee_name, employee_code, designation):
         
         st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
         
-        submitted = st.form_submit_button("Submit Ticket")
+        submitted = st.form_submit_button("Submit Complaint")
         
         if submitted:
             if not subject or not details or not employee_email or not employee_phone:
@@ -176,11 +176,20 @@ def raise_complaint_page(employee_name, employee_code, designation):
                         st.error(f"Failed to submit complaint: {error}")
 
 def view_complaints_page(employee_name):
-    st.title("Tickets")
+    st.title("My Complaint Tickets")
     
     try:
-        # Read complaints data
-        complaints_data = conn.read(worksheet="Complaints", usecols=list(range(len(COMPLAINT_SHEET_COLUMNS))), ttl=5)
+        # Read complaints data with error handling
+        complaints_data = conn.read(worksheet="Complaints", ttl=5)
+        
+        # Check if expected columns exist
+        missing_columns = [col for col in COMPLAINT_SHEET_COLUMNS if col not in complaints_data.columns]
+        if missing_columns:
+            st.error(f"Missing columns in sheet: {', '.join(missing_columns)}")
+            st.info("Please ensure your Google Sheet has all required columns with exact spelling.")
+            return
+            
+        complaints_data = complaints_data[COMPLAINT_SHEET_COLUMNS]  # Select only the columns we want
         complaints_data = complaints_data.dropna(how="all")
         
         if complaints_data.empty:
@@ -328,7 +337,7 @@ def main():
             st.session_state.designation = None
             st.rerun()
         
-        tab1, tab2 = st.tabs(["Raise Ticket", "Previous Ticket"])
+        tab1, tab2 = st.tabs(["Raise New Complaint", "My Complaints"])
         with tab1:
             raise_complaint_page(
                 st.session_state.employee_name,
