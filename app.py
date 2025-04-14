@@ -1,4 +1,4 @@
-# complaint_app.py
+# ticket_app.py
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
@@ -17,16 +17,13 @@ hide_streamlit_style = """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Constants
-COMPLAINT_SHEET_COLUMNS = [
+TICKET_SHEET_COLUMNS = [
     "Ticket ID",
     "Raised By (Employee Name)",
     "Raised By (Employee Code)",
     "Raised By (Designation)",
     "Raised By (Email)",
     "Raised By (Phone)",
-    "Concerned Person",
-    "Concerned Person Code",
-    "Concerned Person Designation",
     "Category",
     "Subject",
     "Details",
@@ -39,8 +36,8 @@ COMPLAINT_SHEET_COLUMNS = [
 ]
 
 # Categories and priorities
-COMPLAINT_CATEGORIES = [
-    "Expense", "Salary", "Complaint", "Product Issues", 
+TICKET_CATEGORIES = [
+    "Expense", "Salary", "Product Issues", 
     "Product Damage", "Product Missing", "Product Delivery", 
     "HR", "Attendance", "Facilities", "IT Support", "Other"
 ]
@@ -56,12 +53,12 @@ Person = pd.read_csv('Invoice - Person.csv')
 def generate_ticket_id():
     return f"TKT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
 
-def log_complaint_to_gsheet(conn, complaint_data):
+def log_ticket_to_gsheet(conn, ticket_data):
     try:
-        existing_data = conn.read(worksheet="Complaints", usecols=list(range(len(COMPLAINT_SHEET_COLUMNS))), ttl=5)
+        existing_data = conn.read(worksheet="Tickets", usecols=list(range(len(TICKET_SHEET_COLUMNS))), ttl=5)
         existing_data = existing_data.dropna(how="all")
-        updated_data = pd.concat([existing_data, complaint_data], ignore_index=True)
-        conn.update(worksheet="Complaints", data=updated_data)
+        updated_data = pd.concat([existing_data, ticket_data], ignore_index=True)
+        conn.update(worksheet="Tickets", data=updated_data)
         return True, None
     except Exception as e:
         return False, str(e)
@@ -73,10 +70,10 @@ def authenticate_employee(employee_name, passkey):
     except:
         return False
 
-def raise_complaint_page(employee_name, employee_code, designation):
-    st.title("Raise New Complaint Ticket")
+def raise_ticket_page(employee_name, employee_code, designation):
+    st.title("Raise New Ticket")
     
-    with st.form("complaint_form"):
+    with st.form("ticket_form"):
         # Employee contact info
         col1, col2 = st.columns(2)
         with col1:
@@ -92,23 +89,13 @@ def raise_complaint_page(employee_name, employee_code, designation):
                 help="Please provide your contact number"
             )
         
-        # Concerned person selection
-        concerned_person = st.selectbox(
-            "Concerned Person*",
-            Person['Employee Name'].tolist(),
-            help="Select the person/department you're raising this complaint about"
-        )
-        
-        # Get concerned person details
-        concerned_details = Person[Person['Employee Name'] == concerned_person].iloc[0]
-        
-        # Complaint details
+        # Ticket details
         col1, col2 = st.columns(2)
         with col1:
             category = st.selectbox(
                 "Category*",
-                COMPLAINT_CATEGORIES,
-                help="Select the most relevant category for your complaint"
+                TICKET_CATEGORIES,
+                help="Select the most relevant category for your ticket"
             )
         with col2:
             priority = st.selectbox(
@@ -121,20 +108,20 @@ def raise_complaint_page(employee_name, employee_code, designation):
         subject = st.text_input(
             "Subject*",
             max_chars=100,
-            placeholder="Brief description of your complaint",
+            placeholder="Brief description of your ticket",
             help="Keep it concise but descriptive"
         )
         
         details = st.text_area(
             "Details*",
             height=200,
-            placeholder="Please provide detailed information about your complaint...",
+            placeholder="Please provide detailed information about your ticket...",
             help="Include all relevant details to help resolve your issue quickly"
         )
         
         st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
         
-        submitted = st.form_submit_button("Submit Complaint")
+        submitted = st.form_submit_button("Submit Ticket")
         
         if submitted:
             if not subject or not details or not employee_email or not employee_phone:
@@ -144,21 +131,18 @@ def raise_complaint_page(employee_name, employee_code, designation):
             elif not employee_phone.strip().isdigit() or len(employee_phone.strip()) < 10:
                 st.error("Please enter a valid 10-digit phone number")
             else:
-                with st.spinner("Submitting your complaint..."):
+                with st.spinner("Submitting your ticket..."):
                     ticket_id = generate_ticket_id()
                     current_date = datetime.now().strftime("%d-%m-%Y")
                     current_time = datetime.now().strftime("%H:%M:%S")
                     
-                    complaint_data = {
+                    ticket_data = {
                         "Ticket ID": ticket_id,
                         "Raised By (Employee Name)": employee_name,
                         "Raised By (Employee Code)": employee_code,
                         "Raised By (Designation)": designation,
                         "Raised By (Email)": employee_email.strip(),
                         "Raised By (Phone)": employee_phone.strip(),
-                        "Concerned Person": concerned_person,
-                        "Concerned Person Code": concerned_details['Employee Code'],
-                        "Concerned Person Designation": concerned_details['Designation'],
                         "Category": category,
                         "Subject": subject,
                         "Details": details,
@@ -171,54 +155,54 @@ def raise_complaint_page(employee_name, employee_code, designation):
                     }
                     
                     # Convert to DataFrame
-                    complaint_df = pd.DataFrame([complaint_data])
+                    ticket_df = pd.DataFrame([ticket_data])
                     
                     # Log to Google Sheets
-                    success, error = log_complaint_to_gsheet(conn, complaint_df)
+                    success, error = log_ticket_to_gsheet(conn, ticket_df)
                     
                     if success:
                         st.success(f"""
-                        Complaint submitted successfully!
+                        Ticket submitted successfully!
                         
                         **Ticket ID:** {ticket_id}
                         **Priority:** {priority}
                         """)
                         st.balloons()
                     else:
-                        st.error(f"Failed to submit complaint: {error}")
+                        st.error(f"Failed to submit ticket: {error}")
 
-def view_complaints_page(employee_name):
-    st.title("My Complaint Tickets")
+def view_tickets_page(employee_name):
+    st.title("My Tickets")
     
     try:
-        # Read complaints data
-        complaints_data = conn.read(worksheet="Complaints", usecols=list(range(len(COMPLAINT_SHEET_COLUMNS))), ttl=5)
-        complaints_data = complaints_data.dropna(how="all")
+        # Read tickets data
+        tickets_data = conn.read(worksheet="Tickets", usecols=list(range(len(TICKET_SHEET_COLUMNS))), ttl=5)
+        tickets_data = tickets_data.dropna(how="all")
         
-        if complaints_data.empty:
-            st.info("No complaints found in the system.")
+        if tickets_data.empty:
+            st.info("No tickets found in the system.")
             return
             
         # Filter for current employee
-        my_complaints = complaints_data[
-            complaints_data['Raised By (Employee Name)'] == employee_name
+        my_tickets = tickets_data[
+            tickets_data['Raised By (Employee Name)'] == employee_name
         ].sort_values(by="Date Raised", ascending=False)
         
-        if my_complaints.empty:
-            st.info("You haven't raised any complaints yet.")
+        if my_tickets.empty:
+            st.info("You haven't raised any tickets yet.")
             return
             
         # Display stats
-        open_count = len(my_complaints[my_complaints['Status'] == "Open"])
-        resolved_count = len(my_complaints[my_complaints['Status'] == "Resolved"])
+        open_count = len(my_tickets[my_tickets['Status'] == "Open"])
+        resolved_count = len(my_tickets[my_tickets['Status'] == "Resolved"])
         
         col1, col2, col3 = st.columns(3)
-        col1.metric("Total Complaints", len(my_complaints))
+        col1.metric("Total Tickets", len(my_tickets))
         col2.metric("Open", open_count)
         col3.metric("Resolved", resolved_count)
         
         # Filter options
-        st.subheader("Filter Complaints")
+        st.subheader("Filter Tickets")
         col1, col2, col3 = st.columns(3)
         with col1:
             status_filter = st.selectbox(
@@ -235,21 +219,21 @@ def view_complaints_page(employee_name):
         with col3:
             category_filter = st.selectbox(
                 "Category",
-                ["All"] + COMPLAINT_CATEGORIES,
+                ["All"] + TICKET_CATEGORIES,
                 key="category_filter"
             )
         
         # Apply filters
-        filtered_complaints = my_complaints.copy()
+        filtered_tickets = my_tickets.copy()
         if status_filter != "All":
-            filtered_complaints = filtered_complaints[filtered_complaints['Status'] == status_filter]
+            filtered_tickets = filtered_tickets[filtered_tickets['Status'] == status_filter]
         if priority_filter != "All":
-            filtered_complaints = filtered_complaints[filtered_complaints['Priority'] == priority_filter]
+            filtered_tickets = filtered_tickets[filtered_tickets['Priority'] == priority_filter]
         if category_filter != "All":
-            filtered_complaints = filtered_complaints[filtered_complaints['Category'] == category_filter]
+            filtered_tickets = filtered_tickets[filtered_tickets['Category'] == category_filter]
         
-        # Display complaints
-        for _, row in filtered_complaints.iterrows():
+        # Display tickets
+        for _, row in filtered_tickets.iterrows():
             with st.expander(f"{row['Subject']} - {row['Status']} ({row['Priority']})"):
                 # Header with status and priority
                 status_color = "red" if row['Status'] == "Open" else "green"
@@ -274,7 +258,6 @@ def view_complaints_page(employee_name):
                     st.write(f"**Your Phone Number:** {row['Raised By (Phone)']}")
                     st.write(f"**Category:** {row['Category']}")
                 with col2:
-                    st.write(f"**Concerned Person:** {row['Concerned Person']} ({row['Concerned Person Designation']})")
                     st.write(f"**Priority:** {row['Priority']}")
                     if row['Date Resolved']:
                         st.write(f"**Date Resolved:** {row['Date Resolved']}")
@@ -290,18 +273,18 @@ def view_complaints_page(employee_name):
                     st.write(row['Resolution Notes'])
         
         # Download option
-        if not filtered_complaints.empty:
-            csv = filtered_complaints.to_csv(index=False).encode('utf-8')
+        if not filtered_tickets.empty:
+            csv = filtered_tickets.to_csv(index=False).encode('utf-8')
             st.download_button(
-                "Download Filtered Complaints",
+                "Download Filtered Tickets",
                 csv,
-                "my_complaints.csv",
+                "my_tickets.csv",
                 "text/csv",
-                key='download-complaints-csv'
+                key='download-tickets-csv'
             )
             
     except Exception as e:
-        st.error(f"Error retrieving complaints: {str(e)}")
+        st.error(f"Error retrieving tickets: {str(e)}")
 
 def main():
     if 'authenticated' not in st.session_state:
@@ -341,15 +324,15 @@ def main():
             st.session_state.designation = None
             st.rerun()
         
-        tab1, tab2 = st.tabs(["Raise New Complaint", "My Complaints"])
+        tab1, tab2 = st.tabs(["Raise New Ticket", "My Tickets"])
         with tab1:
-            raise_complaint_page(
+            raise_ticket_page(
                 st.session_state.employee_name,
                 st.session_state.employee_code,
                 st.session_state.designation
             )
         with tab2:
-            view_complaints_page(st.session_state.employee_name)
+            view_tickets_page(st.session_state.employee_name)
 
 if __name__ == "__main__":
     main()
