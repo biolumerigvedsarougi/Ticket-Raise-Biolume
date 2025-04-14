@@ -176,7 +176,7 @@ def raise_complaint_page(employee_name, employee_code, designation):
                         st.error(f"Failed to submit complaint: {error}")
 
 def view_complaints_page(employee_name):
-    st.title("My Complaint Tickets")
+    st.title("Tickets")
     
     try:
         # Read complaints data
