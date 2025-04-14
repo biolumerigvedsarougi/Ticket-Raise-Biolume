@@ -24,9 +24,6 @@ COMPLAINT_SHEET_COLUMNS = [
     "Raised By (Designation)",
     "Raised By (Email)",
     "Raised By (Phone)",
-    "Concerned Person",
-    "Concerned Person Code",
-    "Concerned Person Designation",
     "Category",
     "Subject",
     "Details",
@@ -74,7 +71,7 @@ def authenticate_employee(employee_name, passkey):
         return False
 
 def raise_complaint_page(employee_name, employee_code, designation):
-    st.title("Raise New Complaint Ticket")
+    st.title("Raise Ticket")
     
     with st.form("complaint_form"):
         # Employee contact info
@@ -92,27 +89,17 @@ def raise_complaint_page(employee_name, employee_code, designation):
                 help="Please provide your contact number"
             )
         
-        # Concerned person selection
-        concerned_person = st.selectbox(
-            "Concerned Person*",
-            Person['Employee Name'].tolist(),
-            help="Select the person/department you're raising this complaint about"
-        )
-        
-        # Get concerned person details
-        concerned_details = Person[Person['Employee Name'] == concerned_person].iloc[0]
-        
         # Complaint details
         col1, col2 = st.columns(2)
         with col1:
             category = st.selectbox(
-                "Category*",
+                "Departments",
                 COMPLAINT_CATEGORIES,
                 help="Select the most relevant category for your complaint"
             )
         with col2:
             priority = st.selectbox(
-                "Priority*",
+                "Priority",
                 PRIORITY_LEVELS,
                 index=1,  # Default to Medium
                 help="How urgent is this issue?"
@@ -121,20 +108,20 @@ def raise_complaint_page(employee_name, employee_code, designation):
         subject = st.text_input(
             "Subject*",
             max_chars=100,
-            placeholder="Brief description of your complaint",
+            placeholder="Brief description of your Ticket",
             help="Keep it concise but descriptive"
         )
         
         details = st.text_area(
             "Details*",
             height=200,
-            placeholder="Please provide detailed information about your complaint...",
+            placeholder="Please provide detailed information about your Ticket",
             help="Include all relevant details to help resolve your issue quickly"
         )
         
         st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
         
-        submitted = st.form_submit_button("Submit Complaint")
+        submitted = st.form_submit_button("Submit Ticket")
         
         if submitted:
             if not subject or not details or not employee_email or not employee_phone:
@@ -144,7 +131,7 @@ def raise_complaint_page(employee_name, employee_code, designation):
             elif not employee_phone.strip().isdigit() or len(employee_phone.strip()) < 10:
                 st.error("Please enter a valid 10-digit phone number")
             else:
-                with st.spinner("Submitting your complaint..."):
+                with st.spinner("Submitting your Ticket"):
                     ticket_id = generate_ticket_id()
                     current_date = datetime.now().strftime("%d-%m-%Y")
                     current_time = datetime.now().strftime("%H:%M:%S")
@@ -156,9 +143,6 @@ def raise_complaint_page(employee_name, employee_code, designation):
                         "Raised By (Designation)": designation,
                         "Raised By (Email)": employee_email.strip(),
                         "Raised By (Phone)": employee_phone.strip(),
-                        "Concerned Person": concerned_person,
-                        "Concerned Person Code": concerned_details['Employee Code'],
-                        "Concerned Person Designation": concerned_details['Designation'],
                         "Category": category,
                         "Subject": subject,
                         "Details": details,
@@ -188,7 +172,7 @@ def raise_complaint_page(employee_name, employee_code, designation):
                         st.error(f"Failed to submit complaint: {error}")
 
 def view_complaints_page(employee_name):
-    st.title("My Complaint Tickets")
+    st.title("Previous Tickets")
     
     try:
         # Read complaints data
@@ -196,7 +180,7 @@ def view_complaints_page(employee_name):
         complaints_data = complaints_data.dropna(how="all")
         
         if complaints_data.empty:
-            st.info("No complaints found in the system.")
+            st.info("No Tickets found in the system.")
             return
             
         # Filter for current employee
@@ -274,7 +258,6 @@ def view_complaints_page(employee_name):
                     st.write(f"**Your Phone Number:** {row['Raised By (Phone)']}")
                     st.write(f"**Category:** {row['Category']}")
                 with col2:
-                    st.write(f"**Concerned Person:** {row['Concerned Person']} ({row['Concerned Person Designation']})")
                     st.write(f"**Priority:** {row['Priority']}")
                     if row['Date Resolved']:
                         st.write(f"**Date Resolved:** {row['Date Resolved']}")
@@ -341,7 +324,7 @@ def main():
             st.session_state.designation = None
             st.rerun()
         
-        tab1, tab2 = st.tabs(["Raise New Complaint", "My Complaints"])
+        tab1, tab2 = st.tabs(["Raise Ticket", "Previous Ticket"])
         with tab1:
             raise_complaint_page(
                 st.session_state.employee_name,
