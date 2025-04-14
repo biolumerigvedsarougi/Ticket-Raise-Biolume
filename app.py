@@ -328,7 +328,7 @@ def main():
             st.session_state.designation = None
             st.rerun()
         
-        tab1, tab2 = st.tabs(["Raise New Complaint", "My Complaints"])
+        tab1, tab2 = st.tabs(["Raise Ticket", "Previous Ticket"])
         with tab1:
             raise_complaint_page(
                 st.session_state.employee_name,
