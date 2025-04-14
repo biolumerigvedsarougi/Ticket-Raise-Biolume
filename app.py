@@ -162,7 +162,7 @@ def raise_ticket_page(employee_name, employee_code, designation):
                     
                     if success:
                         st.success(f"""
-                        Ticket submitted successfully!
+                        Your ticket has been submitted successfully! We will update you within 48 hours regarding this matter.
                         
                         **Ticket ID:** {ticket_id}
                         **Priority:** {priority}
