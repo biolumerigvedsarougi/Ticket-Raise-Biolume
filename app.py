@@ -131,13 +131,16 @@ def raise_ticket_page(employee_name, employee_code, designation):
         from_location = ""
         to_location = ""
         remarks = ""
-        
+
         if category == "Travel":
             sub_category = st.selectbox(
                 "Travel Type",
                 TRAVEL_SUB_CATEGORIES,
                 help="Select the type of travel request"
             )
+            
+            # Add assurance message
+            st.success("Travel requests are processed immediately - no delay in approval!")
             
             if sub_category in ["Hotel", "Travel & Hotel"]:
                 st.subheader("Hotel Details")
