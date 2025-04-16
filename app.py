@@ -50,6 +50,7 @@ TRAVEL_HOTEL_COLUMNS = [
     "Travel Mode",
     "From Location",
     "To Location",
+    "Booking Date",  # Added this new column
     "Remarks",
     "Status",
     "Date Requested",
@@ -251,7 +252,12 @@ def travel_hotel_booking_page(employee_name, employee_code, designation):
                 help="Required for travel bookings"
             )
             
+            # Travel details
             travel_mode = st.selectbox("Travel Mode*", TRAVEL_MODES)
+            
+            # Add Booking Date field
+            booking_date = st.date_input("Booking Date*", min_value=datetime.now())
+            
             col1, col2 = st.columns(2)
             with col1:
                 from_location = st.text_input("From*", placeholder="Starting location")
@@ -269,7 +275,7 @@ def travel_hotel_booking_page(employee_name, employee_code, designation):
             submitted = st.form_submit_button("Submit Travel Request")
             
             if submitted:
-                if not employee_email or not employee_phone or not adhara_number or not travel_mode or not from_location or not to_location:
+                if not employee_email or not employee_phone or not adhara_number or not travel_mode or not from_location or not to_location or not booking_date:
                     st.error("Please fill in all required fields (marked with *)")
                 elif not employee_email.strip() or "@" not in employee_email:
                     st.error("Please enter a valid email address")
@@ -296,6 +302,7 @@ def travel_hotel_booking_page(employee_name, employee_code, designation):
                             "Travel Mode": travel_mode,
                             "From Location": from_location,
                             "To Location": to_location,
+                            "Booking Date": booking_date.strftime("%d-%m-%Y"),  # Add Booking Date
                             "Remarks": remarks,
                             "Status": "Pending",
                             "Date Requested": current_date,
