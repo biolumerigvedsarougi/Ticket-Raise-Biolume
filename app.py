@@ -64,6 +64,7 @@ TICKET_CATEGORIES = [
     "Co-founders",
     "Accounts",
     "Admin Department",
+    "Travel Issue",
     "Product - Delivery/Quantity/Quality/Missing",
     "Others"
 ]
