@@ -25,6 +25,13 @@ TICKET_SHEET_COLUMNS = [
     "Raised By (Email)",
     "Raised By (Phone)",
     "Category",
+    "Sub Category",  # New field for Travel sub-categories
+    "Hotel Name",     # New fields for hotel details
+    "Check In Date",
+    "Check Out Date",
+    "Travel Mode",    # New fields for travel details
+    "From Location",
+    "To Location",
     "Subject",
     "Details",
     "Status",
@@ -32,7 +39,8 @@ TICKET_SHEET_COLUMNS = [
     "Time Raised",
     "Resolution Notes",
     "Date Resolved",
-    "Priority"
+    "Priority",
+    "Remarks"        # General remarks field
 ]
 
 # Categories and priorities
@@ -44,9 +52,12 @@ TICKET_CATEGORIES = [
     "Co-founders",
     "Accounts",
     "Admin Department",
-    "Product - Delivery/Quantity/Quality/Missing"
+    "Product - Delivery/Quantity/Quality/Missing",
     "Others"
 ]
+
+TRAVEL_SUB_CATEGORIES = ["Hotel", "Travel", "Travel & Hotel"]
+TRAVEL_MODES = ["Bus", "Train", "Flight", "Taxi", "Other"]
 
 PRIORITY_LEVELS = ["Low", "Medium", "High", "Critical"]
 
@@ -111,6 +122,43 @@ def raise_ticket_page(employee_name, employee_code, designation):
                 help="How urgent is this issue?"
             )
         
+        # Additional fields for Travel category
+        sub_category = ""
+        hotel_name = ""
+        check_in_date = ""
+        check_out_date = ""
+        travel_mode = ""
+        from_location = ""
+        to_location = ""
+        remarks = ""
+        
+        if category == "Travel":
+            sub_category = st.selectbox(
+                "Travel Type",
+                TRAVEL_SUB_CATEGORIES,
+                help="Select the type of travel request"
+            )
+            
+            if sub_category in ["Hotel", "Travel & Hotel"]:
+                st.subheader("Hotel Details")
+                hotel_name = st.text_input("Hotel Name")
+                col1, col2 = st.columns(2)
+                with col1:
+                    check_in_date = st.date_input("Check In Date")
+                with col2:
+                    check_out_date = st.date_input("Check Out Date")
+            
+            if sub_category in ["Travel", "Travel & Hotel"]:
+                st.subheader("Travel Details")
+                travel_mode = st.selectbox("Mode of Travel", TRAVEL_MODES)
+                col1, col2 = st.columns(2)
+                with col1:
+                    from_location = st.text_input("From (Starting Location)")
+                with col2:
+                    to_location = st.text_input("To (Destination)")
+            
+            remarks = st.text_area("Additional Remarks")
+        
         subject = st.text_input(
             "Subject*",
             max_chars=100,
@@ -150,6 +198,13 @@ def raise_ticket_page(employee_name, employee_code, designation):
                         "Raised By (Email)": employee_email.strip(),
                         "Raised By (Phone)": employee_phone.strip(),
                         "Category": category,
+                        "Sub Category": sub_category if category == "Travel" else "",
+                        "Hotel Name": hotel_name if category == "Travel" else "",
+                        "Check In Date": check_in_date.strftime("%d-%m-%Y") if category == "Travel" and check_in_date else "",
+                        "Check Out Date": check_out_date.strftime("%d-%m-%Y") if category == "Travel" and check_out_date else "",
+                        "Travel Mode": travel_mode if category == "Travel" else "",
+                        "From Location": from_location if category == "Travel" else "",
+                        "To Location": to_location if category == "Travel" else "",
                         "Subject": subject,
                         "Details": details,
                         "Status": "Open",
@@ -157,7 +212,8 @@ def raise_ticket_page(employee_name, employee_code, designation):
                         "Time Raised": current_time,
                         "Resolution Notes": "",
                         "Date Resolved": "",
-                        "Priority": priority
+                        "Priority": priority,
+                        "Remarks": remarks if category == "Travel" else ""
                     }
                     
                     # Convert to DataFrame
@@ -263,12 +319,36 @@ def view_tickets_page(employee_name):
                     st.write(f"**Your Contact Email:** {row['Raised By (Email)']}")
                     st.write(f"**Your Phone Number:** {row['Raised By (Phone)']}")
                     st.write(f"**Category:** {row['Category']}")
+                    if row['Category'] == "Travel" and row['Sub Category']:
+                        st.write(f"**Travel Type:** {row['Sub Category']}")
                 with col2:
                     st.write(f"**Priority:** {row['Priority']}")
                     if row['Date Resolved']:
                         st.write(f"**Date Resolved:** {row['Date Resolved']}")
                 
                 st.write("---")
+                
+                # Display travel/hotel details if applicable
+                if row['Category'] == "Travel":
+                    if row['Sub Category'] in ["Hotel", "Travel & Hotel"] and row['Hotel Name']:
+                        st.write("**Hotel Details:**")
+                        st.write(f"Hotel Name: {row['Hotel Name']}")
+                        st.write(f"Check In: {row['Check In Date']}")
+                        st.write(f"Check Out: {row['Check Out Date']}")
+                        st.write("---")
+                    
+                    if row['Sub Category'] in ["Travel", "Travel & Hotel"] and row['Travel Mode']:
+                        st.write("**Travel Details:**")
+                        st.write(f"Mode: {row['Travel Mode']}")
+                        st.write(f"From: {row['From Location']}")
+                        st.write(f"To: {row['To Location']}")
+                        st.write("---")
+                    
+                    if row['Remarks']:
+                        st.write("**Remarks:**")
+                        st.write(row['Remarks'])
+                        st.write("---")
+                
                 st.write("**Details:**")
                 st.write(row['Details'])
                 
