@@ -699,7 +699,7 @@ def main():
         # Main navigation
         page = st.sidebar.radio(
             "Navigation",
-            ["Travel & Hotel Booking","Raise New Request"],
+            ["Raise New Request", "Travel & Hotel Booking"],
             index=0
         )
         
