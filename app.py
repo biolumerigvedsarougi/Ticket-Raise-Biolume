@@ -628,22 +628,61 @@ def main():
         st.session_state.employee_phone = None
 
     if not st.session_state.authenticated:
-        st.title("Employee Portal - Login")
+        # Create centered layout for logo and heading
+        col1, col2, col3 = st.columns([1, 3, 1])
         
+        with col2:
+            # Display centered logo
+            try:
+                logo = Image.open("logo.png")
+                st.image(logo, use_column_width=True)
+            except FileNotFoundError:
+                st.warning("Logo image not found")
+            
+            # Centered heading with custom style
+            st.markdown("""
+            <div style='text-align: center; margin-bottom: 30px;'>
+                <h1 style='margin-bottom: 0;'>Employee Portal</h1>
+                <h2 style='margin-top: 0; color: #555;'>Login</h2>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Login form
         employee_names = Person['Employee Name'].tolist()
-        employee_name = st.selectbox("Select Your Name", employee_names, key="employee_select")
-        passkey = st.text_input("Password", type="password", key="passkey_input")
         
-        if st.button("Log in", key="login_button"):
-            if authenticate_employee(employee_name, passkey):
-                st.session_state.authenticated = True
-                st.session_state.employee_name = employee_name
-                st.session_state.employee_code = Person[Person['Employee Name'] == employee_name]['Employee Code'].values[0]
-                st.session_state.designation = Person[Person['Employee Name'] == employee_name]['Designation'].values[0]
-                st.rerun()
-            else:
-                st.error("Invalid Employee Code. Please try again.")
+        # Create centered form
+        form_col1, form_col2, form_col3 = st.columns([1, 2, 1])
+        
+        with form_col2:
+            with st.container():
+                employee_name = st.selectbox(
+                    "Select Your Name", 
+                    employee_names, 
+                    key="employee_select"
+                )
+                passkey = st.text_input(
+                    "Password", 
+                    type="password", 
+                    key="passkey_input"
+                )
+                
+                login_button = st.button(
+                    "Log in", 
+                    key="login_button",
+                    use_container_width=True
+                )
+                
+                if login_button:
+                    if authenticate_employee(employee_name, passkey):
+                        st.session_state.authenticated = True
+                        st.session_state.employee_name = employee_name
+                        st.session_state.employee_code = Person[Person['Employee Name'] == employee_name]['Employee Code'].values[0]
+                        st.session_state.designation = Person[Person['Employee Name'] == employee_name]['Designation'].values[0]
+                        st.rerun()
+                    else:
+                        st.error("Invalid Employee Code. Please try again.")
     else:
+        # Authenticated view
         st.sidebar.title(f"Welcome, {st.session_state.employee_name}")
         st.sidebar.write(f"Designation: {st.session_state.designation}")
         st.sidebar.write(f"Employee Code: {st.session_state.employee_code}")
@@ -659,7 +698,7 @@ def main():
         
         page = st.sidebar.radio(
             "Navigation",
-            ["Travel & Hotel Booking", "Raise Support Ticket"],
+            ["Raise Support Ticket", "Travel & Hotel Booking"],
             index=0
         )
         
