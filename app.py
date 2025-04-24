@@ -1,4 +1,3 @@
-# ticket_app.py
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
@@ -50,7 +49,7 @@ TRAVEL_HOTEL_COLUMNS = [
     "Travel Mode",
     "From Location",
     "To Location",
-    "Booking Date",  # Added this new column
+    "Booking Date",
     "Remarks",
     "Status",
     "Date Requested",
@@ -114,12 +113,12 @@ def authenticate_employee(employee_name, passkey):
         return False
 
 def raise_new_request_page(employee_name, employee_code, designation):
-    st.title("Raise New Request")
+    st.title("Raise Support Ticket")
     
-    tab1, tab2 = st.tabs(["Raise New Request", "My Booking Requests"])
+    tab1, tab2 = st.tabs(["Raise New Ticket", "My Support Requests"])
     
     with tab1:
-        st.subheader("Raise New Request")
+        st.subheader("Raise New Support Ticket")
         with st.form("ticket_form"):
             # Employee contact info
             col1, col2 = st.columns(2)
@@ -168,7 +167,7 @@ def raise_new_request_page(employee_name, employee_code, designation):
             
             st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
             
-            submitted = st.form_submit_button("Submit Request")
+            submitted = st.form_submit_button("Submit Ticket")
             
             if submitted:
                 if not subject or not details or not employee_email or not employee_phone:
@@ -178,7 +177,7 @@ def raise_new_request_page(employee_name, employee_code, designation):
                 elif not employee_phone.strip().isdigit() or len(employee_phone.strip()) < 10:
                     st.error("Please enter a valid 10-digit phone number")
                 else:
-                    with st.spinner("Submitting your request..."):
+                    with st.spinner("Submitting your ticket..."):
                         ticket_id = generate_ticket_id()
                         current_date = datetime.now().strftime("%d-%m-%Y")
                         current_time = datetime.now().strftime("%H:%M:%S")
@@ -201,25 +200,23 @@ def raise_new_request_page(employee_name, employee_code, designation):
                             "Priority": priority
                         }
                         
-                        # Convert to DataFrame
                         ticket_df = pd.DataFrame([ticket_data])
-                        
-                        # Log to Google Sheets
                         success, error = log_ticket_to_gsheet(conn, ticket_df)
                         
                         if success:
                             st.success(f"""
-                            Your request has been submitted successfully! We will update you within 48 hours regarding this matter.
+                            Your ticket has been submitted successfully! 
+                            We will update you within 48 hours regarding this matter.
                             
                             **Ticket ID:** {ticket_id}
                             **Priority:** {priority}
                             """)
                             st.balloons()
                         else:
-                            st.error(f"Failed to submit request: {error}")
+                            st.error(f"Failed to submit ticket: {error}")
     
     with tab2:
-        view_my_booking_requests(employee_name)
+        view_my_support_requests(employee_name)
 
 def travel_hotel_booking_page(employee_name, employee_code, designation):
     st.title("Travel & Hotel Booking")
@@ -254,8 +251,6 @@ def travel_hotel_booking_page(employee_name, employee_code, designation):
             
             # Travel details
             travel_mode = st.selectbox("Travel Mode*", TRAVEL_MODES)
-            
-            # Add Booking Date field
             booking_date = st.date_input("Booking Date*", min_value=datetime.now())
             
             col1, col2 = st.columns(2)
@@ -302,26 +297,21 @@ def travel_hotel_booking_page(employee_name, employee_code, designation):
                             "Travel Mode": travel_mode,
                             "From Location": from_location,
                             "To Location": to_location,
-                            "Booking Date": booking_date.strftime("%d-%m-%Y"),  # Add Booking Date
+                            "Booking Date": booking_date.strftime("%d-%m-%Y"),
                             "Remarks": remarks,
                             "Status": "Pending",
                             "Date Requested": current_date,
                             "Time Requested": current_time
                         }
                         
-                        # Convert to DataFrame
                         request_df = pd.DataFrame([request_data])
-                        
-                        # Log to Google Sheets
                         success, error = log_travel_hotel_request(conn, request_df)
                         
                         if success:
                             st.session_state.employee_email = employee_email.strip()
                             st.session_state.employee_phone = employee_phone.strip()
-                            
                             st.success(f"""
                             Your travel request has been submitted successfully! 
-                            
                             **Request ID:** {request_id}
                             """)
                             st.balloons()
@@ -399,25 +389,21 @@ def travel_hotel_booking_page(employee_name, employee_code, designation):
                             "Travel Mode": "",
                             "From Location": "",
                             "To Location": "",
+                            "Booking Date": "",
                             "Remarks": remarks,
                             "Status": "Pending",
                             "Date Requested": current_date,
                             "Time Requested": current_time
                         }
                         
-                        # Convert to DataFrame
                         request_df = pd.DataFrame([request_data])
-                        
-                        # Log to Google Sheets
                         success, error = log_travel_hotel_request(conn, request_df)
                         
                         if success:
                             st.session_state.employee_email = employee_email.strip()
                             st.session_state.employee_phone = employee_phone.strip()
-                            
                             st.success(f"""
                             Your hotel booking request has been submitted successfully! 
-                            
                             **Request ID:** {request_id}
                             """)
                             st.balloons()
@@ -427,21 +413,119 @@ def travel_hotel_booking_page(employee_name, employee_code, designation):
     with tab3:
         view_my_booking_requests(employee_name)
 
-def view_my_booking_requests(employee_name):
-    st.subheader("My Booking Requests")
+def view_my_support_requests(employee_name):
+    st.subheader("My Support Tickets")
     try:
-        # Read travel/hotel requests data
+        tickets_data = conn.read(worksheet="Tickets", usecols=list(range(len(TICKET_SHEET_COLUMNS))), ttl=5)
+        tickets_data = tickets_data.dropna(how="all")
+        
+        if not tickets_data.empty:
+            my_tickets = tickets_data[
+                tickets_data['Raised By (Employee Name)'] == employee_name
+            ].sort_values(by="Date Raised", ascending=False)
+            
+            if not my_tickets.empty:
+                pending_count = len(my_tickets[my_tickets['Status'] == "Open"])
+                resolved_count = len(my_tickets[my_tickets['Status'] == "Resolved"])
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Total Tickets", len(my_tickets))
+                col2.metric("Open", pending_count)
+                col3.metric("Resolved", resolved_count)
+                
+                st.subheader("Filter Tickets")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    status_filter = st.selectbox(
+                        "Status",
+                        ["All", "Open", "Resolved"],
+                        key="status_filter"
+                    )
+                with col2:
+                    priority_filter = st.selectbox(
+                        "Priority",
+                        ["All"] + PRIORITY_LEVELS,
+                        key="priority_filter"
+                    )
+                with col3:
+                    category_filter = st.selectbox(
+                        "Category",
+                        ["All"] + TICKET_CATEGORIES,
+                        key="category_filter"
+                    )
+                
+                filtered_tickets = my_tickets.copy()
+                if status_filter != "All":
+                    filtered_tickets = filtered_tickets[filtered_tickets['Status'] == status_filter]
+                if priority_filter != "All":
+                    filtered_tickets = filtered_tickets[filtered_tickets['Priority'] == priority_filter]
+                if category_filter != "All":
+                    filtered_tickets = filtered_tickets[filtered_tickets['Category'] == category_filter]
+                
+                for _, row in filtered_tickets.iterrows():
+                    with st.expander(f"{row['Subject']} - {row['Status']} ({row['Priority']})"):
+                        status_color = "red" if row['Status'] == "Open" else "green"
+                        st.markdown(f"""
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Ticket ID:</strong> {row['Ticket ID']}<br>
+                                <strong>Date Raised:</strong> {row['Date Raised']} at {row['Time Raised']}
+                            </div>
+                            <div style="color: {status_color}; font-weight: bold;">
+                                {row['Status']}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.write("---")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write(f"**Your Contact Email:** {row['Raised By (Email)']}")
+                            st.write(f"**Your Phone Number:** {row['Raised By (Phone)']}")
+                            st.write(f"**Category:** {row['Category']}")
+                        with col2:
+                            st.write(f"**Priority:** {row['Priority']}")
+                            if row['Date Resolved']:
+                                st.write(f"**Date Resolved:** {row['Date Resolved']}")
+                        
+                        st.write("---")
+                        st.write("**Details:**")
+                        st.write(row['Details'])
+                        
+                        if row['Status'] == "Resolved" and row['Resolution Notes']:
+                            st.write("---")
+                            st.write("**Resolution Notes:**")
+                            st.write(row['Resolution Notes'])
+                
+                if not filtered_tickets.empty:
+                    csv = filtered_tickets.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        "Download Tickets",
+                        csv,
+                        "my_support_tickets.csv",
+                        "text/csv",
+                        key='download-tickets-csv'
+                    )
+            else:
+                st.info("You haven't raised any support tickets yet.")
+        else:
+            st.info("No support tickets found in the system.")
+            
+    except Exception as e:
+        st.error(f"Error retrieving support tickets: {str(e)}")
+
+def view_my_booking_requests(employee_name):
+    st.subheader("My Travel & Hotel Requests")
+    try:
         requests_data = conn.read(worksheet="TravelHotelRequests", usecols=list(range(len(TRAVEL_HOTEL_COLUMNS))), ttl=5)
         requests_data = requests_data.dropna(how="all")
         
         if not requests_data.empty:
-            # Filter for current employee
             my_requests = requests_data[
                 requests_data['Employee Name'] == employee_name
             ].sort_values(by="Date Requested", ascending=False)
             
             if not my_requests.empty:
-                # Display stats
                 pending_count = len(my_requests[my_requests['Status'] == "Pending"])
                 approved_count = len(my_requests[my_requests['Status'] == "Approved"])
                 rejected_count = len(my_requests[my_requests['Status'] == "Rejected"])
@@ -451,7 +535,6 @@ def view_my_booking_requests(employee_name):
                 col2.metric("Pending", pending_count)
                 col3.metric("Approved", approved_count)
                 
-                # Filter options
                 st.subheader("Filter Requests")
                 col1, col2 = st.columns(2)
                 with col1:
@@ -467,14 +550,12 @@ def view_my_booking_requests(employee_name):
                         key="request_type_filter"
                     )
                 
-                # Apply filters
                 filtered_requests = my_requests.copy()
                 if status_filter != "All":
                     filtered_requests = filtered_requests[filtered_requests['Status'] == status_filter]
                 if type_filter != "All":
                     filtered_requests = filtered_requests[filtered_requests['Request Type'] == type_filter]
                 
-                # Display requests
                 for _, row in filtered_requests.iterrows():
                     with st.expander(f"{row['Request Type']} - {row['Status']}"):
                         status_color = "orange" if row['Status'] == "Pending" else "green" if row['Status'] == "Approved" else "red"
@@ -491,13 +572,10 @@ def view_my_booking_requests(employee_name):
                         """, unsafe_allow_html=True)
                         
                         st.write("---")
-                        
-                        # Common details
                         st.write(f"**Your Contact Email:** {row['Email']}")
                         st.write(f"**Your Phone Number:** {row['Phone']}")
                         st.write(f"**Adhara Number:** {row['Adhara Number']}")
                         
-                        # Hotel details if applicable
                         if row['Request Type'] in ["Hotel", "Travel & Hotel"]:
                             st.write("---")
                             st.write("**Hotel Details:**")
@@ -505,152 +583,35 @@ def view_my_booking_requests(employee_name):
                             st.write(f"**Check In Date:** {row['Check In Date']}")
                             st.write(f"**Check Out Date:** {row['Check Out Date']}")
                         
-                        # Travel details if applicable
                         if row['Request Type'] in ["Travel", "Travel & Hotel"]:
                             st.write("---")
                             st.write("**Travel Details:**")
                             st.write(f"**Travel Mode:** {row['Travel Mode']}")
                             st.write(f"**From:** {row['From Location']}")
                             st.write(f"**To:** {row['To Location']}")
+                            st.write(f"**Booking Date:** {row['Booking Date']}")
                         
-                        # Remarks
                         if row['Remarks']:
                             st.write("---")
                             st.write("**Remarks:**")
                             st.write(row['Remarks'])
                 
-                # Download option
                 if not filtered_requests.empty:
                     csv = filtered_requests.to_csv(index=False).encode('utf-8')
                     st.download_button(
-                        "Download Filtered Requests",
+                        "Download Requests",
                         csv,
-                        "my_travel_hotel_requests.csv",
+                        "my_travel_requests.csv",
                         "text/csv",
                         key='download-requests-csv'
                     )
             else:
-                st.info("You haven't made any booking requests yet.")
+                st.info("You haven't made any travel/hotel requests yet.")
         else:
-            st.info("No booking requests found in the system.")
+            st.info("No travel/hotel requests found in the system.")
             
     except Exception as e:
-        st.error(f"Error retrieving booking requests: {str(e)}")
-
-def view_tickets_page(employee_name):
-    st.title("My Tickets")
-    
-    try:
-        # Read tickets data
-        tickets_data = conn.read(worksheet="Tickets", usecols=list(range(len(TICKET_SHEET_COLUMNS))), ttl=5)
-        tickets_data = tickets_data.dropna(how="all")
-        
-        if tickets_data.empty:
-            st.info("No tickets found in the system.")
-            return
-            
-        # Filter for current employee
-        my_tickets = tickets_data[
-            tickets_data['Raised By (Employee Name)'] == employee_name
-        ].sort_values(by="Date Raised", ascending=False)
-        
-        if my_tickets.empty:
-            st.info("You haven't raised any tickets yet.")
-            return
-            
-        # Display stats
-        open_count = len(my_tickets[my_tickets['Status'] == "Open"])
-        resolved_count = len(my_tickets[my_tickets['Status'] == "Resolved"])
-        
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Tickets", len(my_tickets))
-        col2.metric("Open", open_count)
-        col3.metric("Resolved", resolved_count)
-        
-        # Filter options
-        st.subheader("Filter Tickets")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            status_filter = st.selectbox(
-                "Status",
-                ["All", "Open", "Resolved"],
-                key="status_filter"
-            )
-        with col2:
-            priority_filter = st.selectbox(
-                "Priority",
-                ["All"] + PRIORITY_LEVELS,
-                key="priority_filter"
-            )
-        with col3:
-            category_filter = st.selectbox(
-                "Category",
-                ["All"] + TICKET_CATEGORIES,
-                key="category_filter"
-            )
-        
-        # Apply filters
-        filtered_tickets = my_tickets.copy()
-        if status_filter != "All":
-            filtered_tickets = filtered_tickets[filtered_tickets['Status'] == status_filter]
-        if priority_filter != "All":
-            filtered_tickets = filtered_tickets[filtered_tickets['Priority'] == priority_filter]
-        if category_filter != "All":
-            filtered_tickets = filtered_tickets[filtered_tickets['Category'] == category_filter]
-        
-        # Display tickets
-        for _, row in filtered_tickets.iterrows():
-            with st.expander(f"{row['Subject']} - {row['Status']} ({row['Priority']})"):
-                # Header with status and priority
-                status_color = "red" if row['Status'] == "Open" else "green"
-                st.markdown(f"""
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>Ticket ID:</strong> {row['Ticket ID']}<br>
-                        <strong>Date Raised:</strong> {row['Date Raised']} at {row['Time Raised']}
-                    </div>
-                    <div style="color: {status_color}; font-weight: bold;">
-                        {row['Status']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.write("---")
-                
-                # Main content
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**Your Contact Email:** {row['Raised By (Email)']}")
-                    st.write(f"**Your Phone Number:** {row['Raised By (Phone)']}")
-                    st.write(f"**Category:** {row['Category']}")
-                with col2:
-                    st.write(f"**Priority:** {row['Priority']}")
-                    if row['Date Resolved']:
-                        st.write(f"**Date Resolved:** {row['Date Resolved']}")
-                
-                st.write("---")
-                st.write("**Details:**")
-                st.write(row['Details'])
-                
-                # Resolution notes if resolved
-                if row['Status'] == "Resolved" and row['Resolution Notes']:
-                    st.write("---")
-                    st.write("**Resolution Notes:**")
-                    st.write(row['Resolution Notes'])
-        
-        # Download option
-        if not filtered_tickets.empty:
-            csv = filtered_tickets.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                "Download Filtered Tickets",
-                csv,
-                "my_tickets.csv",
-                "text/csv",
-                key='download-tickets-csv'
-            )
-            
-    except Exception as e:
-        st.error(f"Error retrieving tickets: {str(e)}")
+        st.error(f"Error retrieving travel/hotel requests: {str(e)}")
 
 def main():
     if 'authenticated' not in st.session_state:
@@ -667,7 +628,7 @@ def main():
         st.session_state.employee_phone = None
 
     if not st.session_state.authenticated:
-        st.title("Ticket System - Login")
+        st.title("Employee Portal - Login")
         
         employee_names = Person['Employee Name'].tolist()
         employee_name = st.selectbox("Select Your Name", employee_names, key="employee_select")
@@ -696,14 +657,13 @@ def main():
             st.session_state.employee_phone = None
             st.rerun()
         
-        # Main navigation
         page = st.sidebar.radio(
             "Navigation",
-            ["Raise New Request", "Travel & Hotel Booking"],
+            ["Raise Support Ticket", "Travel & Hotel Booking"],
             index=0
         )
         
-        if page == "Raise New Request":
+        if page == "Raise Support Ticket":
             raise_new_request_page(
                 st.session_state.employee_name,
                 st.session_state.employee_code,
