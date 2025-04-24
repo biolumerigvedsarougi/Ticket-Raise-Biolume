@@ -3,7 +3,7 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 import uuid
-
+from PIL import Image
 # Hide Streamlit style elements
 hide_streamlit_style = """
     <style>
