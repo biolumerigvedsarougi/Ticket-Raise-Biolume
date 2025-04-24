@@ -638,14 +638,7 @@ def main():
                 st.image(logo, use_container_width=True)
             except FileNotFoundError:
                 st.warning("Logo image not found")
-            
-            # Centered heading with custom style
-            st.markdown("""
-            <div style='text-align: center; margin-bottom: 30px;'>
-                <h1 style='margin-bottom: 0;'>Employee Portal</h1>
-                <h2 style='margin-top: 0; color: #555;'>Login</h2>
-            </div>
-            """, unsafe_allow_html=True)
+
 
         # Login form
         employee_names = Person['Employee Name'].tolist()
