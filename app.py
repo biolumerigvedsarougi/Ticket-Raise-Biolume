@@ -244,8 +244,8 @@ def travel_hotel_booking_page(employee_name, employee_code, designation):
                 )
             
             adhara_number = st.text_input(
-                "Adhara Number*",
-                placeholder="Enter your Adhara number",
+                "Aadhaar Number*",
+                placeholder="Enter your Aadhaar number",
                 help="Required for travel bookings"
             )
             
@@ -339,8 +339,8 @@ def travel_hotel_booking_page(employee_name, employee_code, designation):
                 )
             
             adhara_number = st.text_input(
-                "Adhara Number*",
-                placeholder="Enter your Adhara number",
+                "Aadhaar Number*",
+                placeholder="Enter your Aadhaar number",
                 help="Required for hotel bookings"
             )
             
