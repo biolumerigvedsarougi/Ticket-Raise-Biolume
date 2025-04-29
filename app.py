@@ -4,7 +4,6 @@ import pandas as pd
 from datetime import datetime
 import uuid
 from PIL import Image
-import base64
 # Hide Streamlit style elements
 hide_streamlit_style = """
     <style>
@@ -32,8 +31,7 @@ TICKET_SHEET_COLUMNS = [
     "Time Raised",
     "Resolution Notes",
     "Date Resolved",
-    "Priority",
-    "Attachments"
+    "Priority"
 ]
 
 TRAVEL_HOTEL_COLUMNS = [
@@ -167,14 +165,6 @@ def raise_new_request_page(employee_name, employee_code, designation):
                 help="Include all relevant details to help resolve your issue quickly"
             )
             
-            # File upload section
-            uploaded_files = st.file_uploader(
-                "Attach supporting documents (if any)",
-                type=["pdf", "docx", "doc", "xlsx", "xls", "jpg", "jpeg", "png"],
-                accept_multiple_files=True,
-                help="You can upload multiple files"
-            )
-            
             st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
             
             submitted = st.form_submit_button("Submit Ticket")
@@ -188,13 +178,6 @@ def raise_new_request_page(employee_name, employee_code, designation):
                     st.error("Please enter a valid 10-digit phone number")
                 else:
                     with st.spinner("Submitting your ticket..."):
-                        # Process uploaded files
-                        attachments = []
-                        if uploaded_files:
-                            for uploaded_file in uploaded_files:
-                                encoded_string = base64.b64encode(uploaded_file.read()).decode('utf-8')
-                                attachments.append(encoded_string)
-                        
                         ticket_id = generate_ticket_id()
                         current_date = datetime.now().strftime("%d-%m-%Y")
                         current_time = datetime.now().strftime("%H:%M:%S")
@@ -214,8 +197,7 @@ def raise_new_request_page(employee_name, employee_code, designation):
                             "Time Raised": current_time,
                             "Resolution Notes": "",
                             "Date Resolved": "",
-                            "Priority": priority,
-                            "Attachments": ",".join(attachments) if attachments else ""
+                            "Priority": priority
                         }
                         
                         ticket_df = pd.DataFrame([ticket_data])
@@ -229,12 +211,9 @@ def raise_new_request_page(employee_name, employee_code, designation):
                             **Ticket ID:** {ticket_id}
                             **Priority:** {priority}
                             """)
-                            if attachments:
-                                st.info(f"{len(attachments)} file(s) attached to this ticket")
                             st.balloons()
                         else:
                             st.error(f"Failed to submit ticket: {error}")
-    
     
     with tab2:
         view_my_support_requests(employee_name)
