@@ -1,10 +1,9 @@
-# complaint_app.py
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 import uuid
-
+from PIL import Image
 # Hide Streamlit style elements
 hide_streamlit_style = """
     <style>
@@ -17,16 +16,13 @@ hide_streamlit_style = """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Constants
-COMPLAINT_SHEET_COLUMNS = [
+TICKET_SHEET_COLUMNS = [
     "Ticket ID",
     "Raised By (Employee Name)",
     "Raised By (Employee Code)",
     "Raised By (Designation)",
     "Raised By (Email)",
     "Raised By (Phone)",
-    "Concerned Person",
-    "Concerned Person Code",
-    "Concerned Person Designation",
     "Category",
     "Subject",
     "Details",
@@ -38,22 +34,44 @@ COMPLAINT_SHEET_COLUMNS = [
     "Priority"
 ]
 
+TRAVEL_HOTEL_COLUMNS = [
+    "Request ID",
+    "Request Type",
+    "Employee Name",
+    "Employee Code",
+    "Designation",
+    "Email",
+    "Phone",
+    "Adhara Number",
+    "Hotel Name",
+    "Check In Date",
+    "Check Out Date",
+    "Travel Mode",
+    "From Location",
+    "To Location",
+    "Booking Date",
+    "Remarks",
+    "Status",
+    "Date Requested",
+    "Time Requested"
+]
+
 # Categories and priorities
-COMPLAINT_CATEGORIES = [
-    "HR",
-    "Complaint",
-    "Product - Order/Dispatch/Less Quantity Received",
-    "Facilities",
-    "Branding/Digital Marketing",
-    "Travel",
-    "Other"
+TICKET_CATEGORIES = [
+    "HR Department",
+    "MIS & Back Office",
+    "Digital & Marketing",
+    "Co-founders",
+    "Accounts",
+    "Admin Department",
+    "Travel Issue",
+    "Product - Delivery/Quantity/Quality/Missing",
+    "Others"
 ]
 
 PRIORITY_LEVELS = ["Low", "Medium", "High", "Critical"]
-
-# Admin credentials (in a real app, use proper authentication)
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"  # In production, use environment variables and proper hashing
+TRAVEL_MODES = ["Bus", "Train", "Flight", "Taxi", "Other"]
+REQUEST_TYPES = ["Hotel", "Travel", "Travel & Hotel"]
 
 # Establish Google Sheets connection
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -64,12 +82,25 @@ Person = pd.read_csv('Invoice - Person.csv')
 def generate_ticket_id():
     return f"TKT-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
 
-def log_complaint_to_gsheet(conn, complaint_data):
+def generate_request_id():
+    return f"REQ-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
+
+def log_ticket_to_gsheet(conn, ticket_data):
     try:
-        existing_data = conn.read(worksheet="Complaints", usecols=list(range(len(COMPLAINT_SHEET_COLUMNS))), ttl=5)
+        existing_data = conn.read(worksheet="Tickets", usecols=list(range(len(TICKET_SHEET_COLUMNS))), ttl=5)
         existing_data = existing_data.dropna(how="all")
-        updated_data = pd.concat([existing_data, complaint_data], ignore_index=True)
-        conn.update(worksheet="Complaints", data=updated_data)
+        updated_data = pd.concat([existing_data, ticket_data], ignore_index=True)
+        conn.update(worksheet="Tickets", data=updated_data)
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+def log_travel_hotel_request(conn, request_data):
+    try:
+        existing_data = conn.read(worksheet="TravelHotelRequests", usecols=list(range(len(TRAVEL_HOTEL_COLUMNS))), ttl=5)
+        existing_data = existing_data.dropna(how="all")
+        updated_data = pd.concat([existing_data, request_data], ignore_index=True)
+        conn.update(worksheet="TravelHotelRequests", data=updated_data)
         return True, None
     except Exception as e:
         return False, str(e)
@@ -81,462 +112,576 @@ def authenticate_employee(employee_name, passkey):
     except:
         return False
 
-def authenticate_admin(username, password):
-    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
-
-def raise_complaint_page(employee_name, employee_code, designation):
-    st.title("Raise New Complaint Ticket")
+def raise_new_request_page(employee_name, employee_code, designation):
+    st.title("Raise Support Ticket")
     
-    with st.form("complaint_form"):
-        # Employee contact info
-        col1, col2 = st.columns(2)
-        with col1:
-            employee_email = st.text_input(
-                "Your Email*",
-                placeholder="your.email@company.com",
-                help="Please provide your contact email"
+    tab1, tab2 = st.tabs(["Raise New Ticket", "My Support Requests"])
+    
+    with tab1:
+        st.subheader("Raise New Support Ticket")
+        with st.form("ticket_form"):
+            # Employee contact info
+            col1, col2 = st.columns(2)
+            with col1:
+                employee_email = st.text_input(
+                    "Your Email*",
+                    placeholder="your.email@company.com",
+                    help="Please provide your contact email"
+                )
+            with col2:
+                employee_phone = st.text_input(
+                    "Your Phone Number*",
+                    placeholder="9876543210",
+                    help="Please provide your contact number"
+                )
+            
+            # Ticket details
+            col1, col2 = st.columns(2)
+            with col1:
+                category = st.selectbox(
+                    "Department",
+                    TICKET_CATEGORIES,
+                    help="Select the most relevant category for your ticket"
+                )
+            with col2:
+                priority = st.selectbox(
+                    "Priority*",
+                    PRIORITY_LEVELS,
+                    index=1,  # Default to Medium
+                    help="How urgent is this issue?"
+                )
+            
+            subject = st.text_input(
+                "Subject*",
+                max_chars=100,
+                placeholder="Brief description of your ticket",
+                help="Keep it concise but descriptive"
             )
-        with col2:
-            employee_phone = st.text_input(
-                "Your Phone Number*",
-                placeholder="9876543210",
-                help="Please provide your contact number"
+            
+            details = st.text_area(
+                "Details*",
+                height=200,
+                placeholder="Please provide detailed information about your ticket...",
+                help="Include all relevant details to help resolve your issue quickly"
             )
-        
-        # Concerned person selection
-        concerned_person = st.selectbox(
-            "Concerned Person*",
-            Person['Employee Name'].tolist(),
-            help="Select the person/department you're raising this complaint about"
-        )
-        
-        # Get concerned person details
-        concerned_details = Person[Person['Employee Name'] == concerned_person].iloc[0]
-        
-        # Complaint details
-        col1, col2 = st.columns(2)
-        with col1:
-            category = st.selectbox(
-                "Category*",
-                COMPLAINT_CATEGORIES,
-                help="Select the most relevant category for your complaint"
-            )
-        with col2:
-            priority = st.selectbox(
-                "Priority*",
-                PRIORITY_LEVELS,
-                index=1,  # Default to Medium
-                help="How urgent is this issue?"
-            )
-        
-        subject = st.text_input(
-            "Subject*",
-            max_chars=100,
-            placeholder="Brief description of your complaint",
-            help="Keep it concise but descriptive"
-        )
-        
-        details = st.text_area(
-            "Details*",
-            height=200,
-            placeholder="Please provide detailed information about your complaint...",
-            help="Include all relevant details to help resolve your issue quickly"
-        )
-        
-        st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
-        
-        submitted = st.form_submit_button("Submit Complaint")
-        
-        if submitted:
-            if not subject or not details or not employee_email or not employee_phone:
-                st.error("Please fill in all required fields (marked with *)")
-            elif not employee_email.strip() or "@" not in employee_email:
-                st.error("Please enter a valid email address")
-            elif not employee_phone.strip().isdigit() or len(employee_phone.strip()) < 10:
-                st.error("Please enter a valid 10-digit phone number")
-            else:
-                with st.spinner("Submitting your complaint..."):
-                    ticket_id = generate_ticket_id()
-                    current_date = datetime.now().strftime("%d-%m-%Y")
-                    current_time = datetime.now().strftime("%H:%M:%S")
-                    
-                    complaint_data = {
-                        "Ticket ID": ticket_id,
-                        "Raised By (Employee Name)": employee_name,
-                        "Raised By (Employee Code)": employee_code,
-                        "Raised By (Designation)": designation,
-                        "Raised By (Email)": employee_email.strip(),
-                        "Raised By (Phone)": employee_phone.strip(),
-                        "Concerned Person": concerned_person,
-                        "Concerned Person Code": concerned_details['Employee Code'],
-                        "Concerned Person Designation": concerned_details['Designation'],
-                        "Category": category,
-                        "Subject": subject,
-                        "Details": details,
-                        "Status": "Open",
-                        "Date Raised": current_date,
-                        "Time Raised": current_time,
-                        "Resolution Notes": "",
-                        "Date Resolved": "",
-                        "Priority": priority
-                    }
-                    
-                    # Convert to DataFrame
-                    complaint_df = pd.DataFrame([complaint_data])
-                    
-                    # Log to Google Sheets
-                    success, error = log_complaint_to_gsheet(conn, complaint_df)
-                    
-                    if success:
-                        st.success(f"""
-                        Complaint submitted successfully!
+            
+            st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
+            
+            submitted = st.form_submit_button("Submit Ticket")
+            
+            if submitted:
+                if not subject or not details or not employee_email or not employee_phone:
+                    st.error("Please fill in all required fields (marked with *)")
+                elif not employee_email.strip() or "@" not in employee_email:
+                    st.error("Please enter a valid email address")
+                elif not employee_phone.strip().isdigit() or len(employee_phone.strip()) < 10:
+                    st.error("Please enter a valid 10-digit phone number")
+                else:
+                    with st.spinner("Submitting your ticket..."):
+                        ticket_id = generate_ticket_id()
+                        current_date = datetime.now().strftime("%d-%m-%Y")
+                        current_time = datetime.now().strftime("%H:%M:%S")
                         
-                        **Ticket ID:** {ticket_id}
-                        **Priority:** {priority}
-                        """)
-                        st.balloons()
-                    else:
-                        st.error(f"Failed to submit complaint: {error}")
-
-def view_complaints_page(employee_name):
-    st.title("My Complaint Tickets")
-    
-    try:
-        # Read complaints data
-        complaints_data = conn.read(worksheet="Complaints", usecols=list(range(len(COMPLAINT_SHEET_COLUMNS))), ttl=5)
-        complaints_data = complaints_data.dropna(how="all")
-        
-        if complaints_data.empty:
-            st.info("No complaints found in the system.")
-            return
-            
-        # Filter for current employee
-        my_complaints = complaints_data[
-            complaints_data['Raised By (Employee Name)'] == employee_name
-        ].sort_values(by="Date Raised", ascending=False)
-        
-        if my_complaints.empty:
-            st.info("You haven't raised any complaints yet.")
-            return
-            
-        # Display stats
-        open_count = len(my_complaints[my_complaints['Status'] == "Open"])
-        resolved_count = len(my_complaints[my_complaints['Status'] == "Resolved"])
-        
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Complaints", len(my_complaints))
-        col2.metric("Open", open_count)
-        col3.metric("Resolved", resolved_count)
-        
-        # Filter options
-        st.subheader("Filter Complaints")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            status_filter = st.selectbox(
-                "Status",
-                ["All", "Open", "Resolved"],
-                key="status_filter"
-            )
-        with col2:
-            priority_filter = st.selectbox(
-                "Priority",
-                ["All"] + PRIORITY_LEVELS,
-                key="priority_filter"
-            )
-        with col3:
-            category_filter = st.selectbox(
-                "Category",
-                ["All"] + COMPLAINT_CATEGORIES,
-                key="category_filter"
-            )
-        
-        # Apply filters
-        filtered_complaints = my_complaints.copy()
-        if status_filter != "All":
-            filtered_complaints = filtered_complaints[filtered_complaints['Status'] == status_filter]
-        if priority_filter != "All":
-            filtered_complaints = filtered_complaints[filtered_complaints['Priority'] == priority_filter]
-        if category_filter != "All":
-            filtered_complaints = filtered_complaints[filtered_complaints['Category'] == category_filter]
-        
-        # Display complaints
-        for _, row in filtered_complaints.iterrows():
-            with st.expander(f"{row['Subject']} - {row['Status']} ({row['Priority']})"):
-                # Header with status and priority
-                status_color = "red" if row['Status'] == "Open" else "green"
-                st.markdown(f"""
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>Ticket ID:</strong> {row['Ticket ID']}<br>
-                        <strong>Date Raised:</strong> {row['Date Raised']} at {row['Time Raised']}
-                    </div>
-                    <div style="color: {status_color}; font-weight: bold;">
-                        {row['Status']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.write("---")
-                
-                # Main content
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**Your Contact Email:** {row['Raised By (Email)']}")
-                    st.write(f"**Your Phone Number:** {row['Raised By (Phone)']}")
-                    st.write(f"**Category:** {row['Category']}")
-                with col2:
-                    st.write(f"**Concerned Person:** {row['Concerned Person']} ({row['Concerned Person Designation']})")
-                    st.write(f"**Priority:** {row['Priority']}")
-                    if row['Date Resolved']:
-                        st.write(f"**Date Resolved:** {row['Date Resolved']}")
-                
-                st.write("---")
-                st.write("**Details:**")
-                st.write(row['Details'])
-                
-                # Resolution notes if resolved
-                if row['Status'] == "Resolved" and row['Resolution Notes']:
-                    st.write("---")
-                    st.write("**Resolution Notes:**")
-                    st.write(row['Resolution Notes'])
-        
-        # Download option
-        if not filtered_complaints.empty:
-            csv = filtered_complaints.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                "Download Filtered Complaints",
-                csv,
-                "my_complaints.csv",
-                "text/csv",
-                key='download-complaints-csv'
-            )
-            
-    except Exception as e:
-        st.error(f"Error retrieving complaints: {str(e)}")
-
-def admin_dashboard():
-    st.title("Admin Dashboard")
-    
-    try:
-        # Read all complaints data
-        complaints_data = conn.read(worksheet="Complaints", usecols=list(range(len(COMPLAINT_SHEET_COLUMNS))), ttl=5)
-        complaints_data = complaints_data.dropna(how="all")
-        
-        if complaints_data.empty:
-            st.info("No complaints found in the system.")
-            return
-        
-        # Overall statistics
-        st.subheader("Overall Statistics")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Complaints", len(complaints_data))
-        col2.metric("Open Complaints", len(complaints_data[complaints_data['Status'] == "Open"]))
-        col3.metric("Resolved Complaints", len(complaints_data[complaints_data['Status'] == "Resolved"]))
-        col4.metric("Unique Employees", len(complaints_data['Raised By (Employee Name)'].unique()))
-        
-        # Status distribution
-        st.subheader("Complaint Status Distribution")
-        status_counts = complaints_data['Status'].value_counts()
-        st.bar_chart(status_counts)
-        
-        # Category distribution
-        st.subheader("Complaints by Category")
-        category_counts = complaints_data['Category'].value_counts()
-        st.bar_chart(category_counts)
-        
-        # Priority distribution
-        st.subheader("Complaints by Priority")
-        priority_counts = complaints_data['Priority'].value_counts()
-        st.bar_chart(priority_counts)
-        
-        # Time series of complaints
-        st.subheader("Complaints Over Time")
-        if 'Date Raised' in complaints_data.columns:
-            try:
-                complaints_data['Date Raised'] = pd.to_datetime(complaints_data['Date Raised'], format='%d-%m-%Y')
-                time_series = complaints_data.groupby('Date Raised').size()
-                st.line_chart(time_series)
-            except:
-                st.warning("Could not parse dates for time series chart")
-        
-        # Detailed view with filtering
-        st.subheader("All Complaints")
-        
-        # Filter options
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            status_filter = st.selectbox(
-                "Filter by Status",
-                ["All", "Open", "Resolved"],
-                key="admin_status_filter"
-            )
-        with col2:
-            priority_filter = st.selectbox(
-                "Filter by Priority",
-                ["All"] + PRIORITY_LEVELS,
-                key="admin_priority_filter"
-            )
-        with col3:
-            category_filter = st.selectbox(
-                "Filter by Category",
-                ["All"] + COMPLAINT_CATEGORIES,
-                key="admin_category_filter"
-            )
-        
-        # Apply filters
-        filtered_data = complaints_data.copy()
-        if status_filter != "All":
-            filtered_data = filtered_data[filtered_data['Status'] == status_filter]
-        if priority_filter != "All":
-            filtered_data = filtered_data[filtered_data['Priority'] == priority_filter]
-        if category_filter != "All":
-            filtered_data = filtered_data[filtered_data['Category'] == category_filter]
-        
-        # Display filtered complaints
-        st.dataframe(filtered_data, use_container_width=True)
-        
-        # Download all complaints
-        csv = filtered_data.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            "Download Filtered Data",
-            csv,
-            "all_complaints.csv",
-            "text/csv",
-            key='download-all-complaints'
-        )
-        
-    except Exception as e:
-        st.error(f"Error loading complaint data: {str(e)}")
-
-def manage_complaints():
-    st.title("Manage Complaints")
-    
-    try:
-        # Read all complaints data
-        complaints_data = conn.read(worksheet="Complaints", usecols=list(range(len(COMPLAINT_SHEET_COLUMNS))), ttl=5)
-        complaints_data = complaints_data.dropna(how="all")
-        
-        if complaints_data.empty:
-            st.info("No complaints found in the system.")
-            return
-        
-        # Filter only open complaints for management
-        open_complaints = complaints_data[complaints_data['Status'] == "Open"]
-        
-        if open_complaints.empty:
-            st.success("All complaints have been resolved!")
-            return
-        
-        st.subheader("Open Complaints")
-        
-        for _, row in open_complaints.iterrows():
-            with st.expander(f"{row['Subject']} - {row['Priority']} (Raised by: {row['Raised By (Employee Name)']})"):
-                st.markdown(f"""
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>Ticket ID:</strong> {row['Ticket ID']}<br>
-                        <strong>Date Raised:</strong> {row['Date Raised']} at {row['Time Raised']}
-                    </div>
-                    <div style="color: red; font-weight: bold;">
-                        {row['Status']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.write("---")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**Raised By:** {row['Raised By (Employee Name)']} ({row['Raised By (Designation)']})")
-                    st.write(f"**Employee Code:** {row['Raised By (Employee Code)']}")
-                    st.write(f"**Contact Email:** {row['Raised By (Email)']}")
-                    st.write(f"**Phone:** {row['Raised By (Phone)']}")
-                with col2:
-                    st.write(f"**Category:** {row['Category']}")
-                    st.write(f"**Priority:** {row['Priority']}")
-                    st.write(f"**Concerned Person:** {row['Concerned Person']} ({row['Concerned Person Designation']})")
-                
-                st.write("---")
-                st.write("**Details:**")
-                st.write(row['Details'])
-                
-                # Resolution form
-                with st.form(key=f"resolve_form_{row['Ticket ID']}"):
-                    resolution_notes = st.text_area(
-                        "Resolution Notes*",
-                        height=150,
-                        help="Please provide details about how this complaint was resolved"
-                    )
-                    
-                    resolved = st.form_submit_button("Mark as Resolved")
-                    
-                    if resolved:
-                        if not resolution_notes:
-                            st.error("Please provide resolution notes")
-                        else:
-                            # Update the complaint status
-                            complaints_data.loc[
-                                complaints_data['Ticket ID'] == row['Ticket ID'],
-                                ['Status', 'Resolution Notes', 'Date Resolved']
-                            ] = [
-                                "Resolved",
-                                resolution_notes,
-                                datetime.now().strftime("%d-%m-%Y")
-                            ]
+                        ticket_data = {
+                            "Ticket ID": ticket_id,
+                            "Raised By (Employee Name)": employee_name,
+                            "Raised By (Employee Code)": employee_code,
+                            "Raised By (Designation)": designation,
+                            "Raised By (Email)": employee_email.strip(),
+                            "Raised By (Phone)": employee_phone.strip(),
+                            "Category": category,
+                            "Subject": subject,
+                            "Details": details,
+                            "Status": "Open",
+                            "Date Raised": current_date,
+                            "Time Raised": current_time,
+                            "Resolution Notes": "",
+                            "Date Resolved": "",
+                            "Priority": priority
+                        }
+                        
+                        ticket_df = pd.DataFrame([ticket_data])
+                        success, error = log_ticket_to_gsheet(conn, ticket_df)
+                        
+                        if success:
+                            st.success(f"""
+                            Your ticket has been submitted successfully! 
+                            We will update you within 48 hours regarding this matter.
                             
-                            # Save back to Google Sheets
-                            conn.update(worksheet="Complaints", data=complaints_data)
-                            st.success("Complaint marked as resolved!")
-                            st.rerun()
+                            **Ticket ID:** {ticket_id}
+                            **Priority:** {priority}
+                            """)
+                            st.balloons()
+                        else:
+                            st.error(f"Failed to submit ticket: {error}")
+    
+    with tab2:
+        view_my_support_requests(employee_name)
+
+def travel_hotel_booking_page(employee_name, employee_code, designation):
+    st.title("Travel & Hotel Booking")
+    
+    tab1, tab2, tab3 = st.tabs(["Travel Request", "Hotel Booking Request", "My Booking Requests"])
+    
+    with tab1:
+        st.subheader("New Travel Request")
+        with st.form("travel_form"):
+            # Employee contact info
+            col1, col2 = st.columns(2)
+            with col1:
+                employee_email = st.text_input(
+                    "Your Email*",
+                    value=st.session_state.get('employee_email', ''),
+                    placeholder="your.email@company.com",
+                    help="Please provide your contact email"
+                )
+            with col2:
+                employee_phone = st.text_input(
+                    "Your Phone Number*",
+                    value=st.session_state.get('employee_phone', ''),
+                    placeholder="9876543210",
+                    help="Please provide your contact number"
+                )
+            
+            adhara_number = st.text_input(
+                "Aadhaar Number*",
+                placeholder="Enter your Aadhaar number",
+                help="Required for travel bookings"
+            )
+            
+            # Travel details
+            travel_mode = st.selectbox("Travel Mode*", TRAVEL_MODES)
+            booking_date = st.date_input("Booking Date*", min_value=datetime.now())
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                from_location = st.text_input("From*", placeholder="Starting location")
+            with col2:
+                to_location = st.text_input("To*", placeholder="Destination")
+            
+            remarks = st.text_area(
+                "Remarks",
+                placeholder="Any special requirements or additional information...",
+                height=100
+            )
+            
+            st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
+            
+            submitted = st.form_submit_button("Submit Travel Request")
+            
+            if submitted:
+                if not employee_email or not employee_phone or not adhara_number or not travel_mode or not from_location or not to_location or not booking_date:
+                    st.error("Please fill in all required fields (marked with *)")
+                elif not employee_email.strip() or "@" not in employee_email:
+                    st.error("Please enter a valid email address")
+                elif not employee_phone.strip().isdigit() or len(employee_phone.strip()) < 10:
+                    st.error("Please enter a valid 10-digit phone number")
+                else:
+                    with st.spinner("Submitting your travel request..."):
+                        request_id = generate_request_id()
+                        current_date = datetime.now().strftime("%d-%m-%Y")
+                        current_time = datetime.now().strftime("%H:%M:%S")
+                        
+                        request_data = {
+                            "Request ID": request_id,
+                            "Request Type": "Travel",
+                            "Employee Name": employee_name,
+                            "Employee Code": employee_code,
+                            "Designation": designation,
+                            "Email": employee_email.strip(),
+                            "Phone": employee_phone.strip(),
+                            "Adhara Number": adhara_number.strip(),
+                            "Hotel Name": "",
+                            "Check In Date": "",
+                            "Check Out Date": "",
+                            "Travel Mode": travel_mode,
+                            "From Location": from_location,
+                            "To Location": to_location,
+                            "Booking Date": booking_date.strftime("%d-%m-%Y"),
+                            "Remarks": remarks,
+                            "Status": "Pending",
+                            "Date Requested": current_date,
+                            "Time Requested": current_time
+                        }
+                        
+                        request_df = pd.DataFrame([request_data])
+                        success, error = log_travel_hotel_request(conn, request_df)
+                        
+                        if success:
+                            st.session_state.employee_email = employee_email.strip()
+                            st.session_state.employee_phone = employee_phone.strip()
+                            st.success(f"""
+                            Your travel request has been submitted successfully! 
+                            **Request ID:** {request_id}
+                            """)
+                            st.balloons()
+                        else:
+                            st.error(f"Failed to submit request: {error}")
+    
+    with tab2:
+        st.subheader("Hotel Booking Request")
+        with st.form("hotel_form"):
+            # Employee contact info
+            col1, col2 = st.columns(2)
+            with col1:
+                employee_email = st.text_input(
+                    "Your Email*",
+                    value=st.session_state.get('employee_email', ''),
+                    placeholder="your.email@company.com",
+                    help="Please provide your contact email"
+                )
+            with col2:
+                employee_phone = st.text_input(
+                    "Your Phone Number*",
+                    value=st.session_state.get('employee_phone', ''),
+                    placeholder="9876543210",
+                    help="Please provide your contact number"
+                )
+            
+            adhara_number = st.text_input(
+                "Aadhaar Number*",
+                placeholder="Enter your Aadhaar number",
+                help="Required for hotel bookings"
+            )
+            
+            hotel_name = st.text_input("Hotel Name*")
+            col1, col2 = st.columns(2)
+            with col1:
+                check_in_date = st.date_input("Check In Date*", min_value=datetime.now())
+            with col2:
+                check_out_date = st.date_input("Check Out Date*", min_value=datetime.now())
+            
+            remarks = st.text_area(
+                "Remarks",
+                placeholder="Any special requirements or additional information...",
+                height=100
+            )
+            
+            st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
+            
+            submitted = st.form_submit_button("Submit Hotel Booking Request")
+            
+            if submitted:
+                if not employee_email or not employee_phone or not adhara_number or not hotel_name or not check_in_date or not check_out_date:
+                    st.error("Please fill in all required fields (marked with *)")
+                elif not employee_email.strip() or "@" not in employee_email:
+                    st.error("Please enter a valid email address")
+                elif not employee_phone.strip().isdigit() or len(employee_phone.strip()) < 10:
+                    st.error("Please enter a valid 10-digit phone number")
+                else:
+                    with st.spinner("Submitting your hotel booking request..."):
+                        request_id = generate_request_id()
+                        current_date = datetime.now().strftime("%d-%m-%Y")
+                        current_time = datetime.now().strftime("%H:%M:%S")
+                        
+                        request_data = {
+                            "Request ID": request_id,
+                            "Request Type": "Hotel",
+                            "Employee Name": employee_name,
+                            "Employee Code": employee_code,
+                            "Designation": designation,
+                            "Email": employee_email.strip(),
+                            "Phone": employee_phone.strip(),
+                            "Adhara Number": adhara_number.strip(),
+                            "Hotel Name": hotel_name,
+                            "Check In Date": check_in_date.strftime("%d-%m-%Y"),
+                            "Check Out Date": check_out_date.strftime("%d-%m-%Y"),
+                            "Travel Mode": "",
+                            "From Location": "",
+                            "To Location": "",
+                            "Booking Date": "",
+                            "Remarks": remarks,
+                            "Status": "Pending",
+                            "Date Requested": current_date,
+                            "Time Requested": current_time
+                        }
+                        
+                        request_df = pd.DataFrame([request_data])
+                        success, error = log_travel_hotel_request(conn, request_df)
+                        
+                        if success:
+                            st.session_state.employee_email = employee_email.strip()
+                            st.session_state.employee_phone = employee_phone.strip()
+                            st.success(f"""
+                            Your hotel booking request has been submitted successfully! 
+                            **Request ID:** {request_id}
+                            """)
+                            st.balloons()
+                        else:
+                            st.error(f"Failed to submit request: {error}")
+    
+    with tab3:
+        view_my_booking_requests(employee_name)
+
+def view_my_support_requests(employee_name):
+    st.subheader("My Support Tickets")
+    try:
+        tickets_data = conn.read(worksheet="Tickets", usecols=list(range(len(TICKET_SHEET_COLUMNS))), ttl=5)
+        tickets_data = tickets_data.dropna(how="all")
         
+        if not tickets_data.empty:
+            my_tickets = tickets_data[
+                tickets_data['Raised By (Employee Name)'] == employee_name
+            ].sort_values(by="Date Raised", ascending=False)
+            
+            if not my_tickets.empty:
+                pending_count = len(my_tickets[my_tickets['Status'] == "Open"])
+                resolved_count = len(my_tickets[my_tickets['Status'] == "Resolved"])
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Total Tickets", len(my_tickets))
+                col2.metric("Open", pending_count)
+                col3.metric("Resolved", resolved_count)
+                
+                st.subheader("Filter Tickets")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    status_filter = st.selectbox(
+                        "Status",
+                        ["All", "Open", "Resolved"],
+                        key="status_filter"
+                    )
+                with col2:
+                    priority_filter = st.selectbox(
+                        "Priority",
+                        ["All"] + PRIORITY_LEVELS,
+                        key="priority_filter"
+                    )
+                with col3:
+                    category_filter = st.selectbox(
+                        "Category",
+                        ["All"] + TICKET_CATEGORIES,
+                        key="category_filter"
+                    )
+                
+                filtered_tickets = my_tickets.copy()
+                if status_filter != "All":
+                    filtered_tickets = filtered_tickets[filtered_tickets['Status'] == status_filter]
+                if priority_filter != "All":
+                    filtered_tickets = filtered_tickets[filtered_tickets['Priority'] == priority_filter]
+                if category_filter != "All":
+                    filtered_tickets = filtered_tickets[filtered_tickets['Category'] == category_filter]
+                
+                for _, row in filtered_tickets.iterrows():
+                    with st.expander(f"{row['Subject']} - {row['Status']} ({row['Priority']})"):
+                        status_color = "red" if row['Status'] == "Open" else "green"
+                        st.markdown(f"""
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Ticket ID:</strong> {row['Ticket ID']}<br>
+                                <strong>Date Raised:</strong> {row['Date Raised']} at {row['Time Raised']}
+                            </div>
+                            <div style="color: {status_color}; font-weight: bold;">
+                                {row['Status']}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.write("---")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.write(f"**Your Contact Email:** {row['Raised By (Email)']}")
+                            st.write(f"**Your Phone Number:** {row['Raised By (Phone)']}")
+                            st.write(f"**Category:** {row['Category']}")
+                        with col2:
+                            st.write(f"**Priority:** {row['Priority']}")
+                            if row['Date Resolved']:
+                                st.write(f"**Date Resolved:** {row['Date Resolved']}")
+                        
+                        st.write("---")
+                        st.write("**Details:**")
+                        st.write(row['Details'])
+                        
+                        if row['Status'] == "Resolved" and row['Resolution Notes']:
+                            st.write("---")
+                            st.write("**Resolution Notes:**")
+                            st.write(row['Resolution Notes'])
+                
+                if not filtered_tickets.empty:
+                    csv = filtered_tickets.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        "Download Tickets",
+                        csv,
+                        "my_support_tickets.csv",
+                        "text/csv",
+                        key='download-tickets-csv'
+                    )
+            else:
+                st.info("You haven't raised any support tickets yet.")
+        else:
+            st.info("No support tickets found in the system.")
+            
     except Exception as e:
-        st.error(f"Error managing complaints: {str(e)}")
+        st.error(f"Error retrieving support tickets: {str(e)}")
+
+def view_my_booking_requests(employee_name):
+    st.subheader("My Travel & Hotel Requests")
+    try:
+        requests_data = conn.read(worksheet="TravelHotelRequests", usecols=list(range(len(TRAVEL_HOTEL_COLUMNS))), ttl=5)
+        requests_data = requests_data.dropna(how="all")
+        
+        if not requests_data.empty:
+            my_requests = requests_data[
+                requests_data['Employee Name'] == employee_name
+            ].sort_values(by="Date Requested", ascending=False)
+            
+            if not my_requests.empty:
+                pending_count = len(my_requests[my_requests['Status'] == "Pending"])
+                approved_count = len(my_requests[my_requests['Status'] == "Approved"])
+                rejected_count = len(my_requests[my_requests['Status'] == "Rejected"])
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Total Requests", len(my_requests))
+                col2.metric("Pending", pending_count)
+                col3.metric("Approved", approved_count)
+                
+                st.subheader("Filter Requests")
+                col1, col2 = st.columns(2)
+                with col1:
+                    status_filter = st.selectbox(
+                        "Status",
+                        ["All", "Pending", "Approved", "Rejected"],
+                        key="request_status_filter"
+                    )
+                with col2:
+                    type_filter = st.selectbox(
+                        "Request Type",
+                        ["All"] + REQUEST_TYPES,
+                        key="request_type_filter"
+                    )
+                
+                filtered_requests = my_requests.copy()
+                if status_filter != "All":
+                    filtered_requests = filtered_requests[filtered_requests['Status'] == status_filter]
+                if type_filter != "All":
+                    filtered_requests = filtered_requests[filtered_requests['Request Type'] == type_filter]
+                
+                for _, row in filtered_requests.iterrows():
+                    with st.expander(f"{row['Request Type']} - {row['Status']}"):
+                        status_color = "orange" if row['Status'] == "Pending" else "green" if row['Status'] == "Approved" else "red"
+                        st.markdown(f"""
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>Request ID:</strong> {row['Request ID']}<br>
+                                <strong>Date Requested:</strong> {row['Date Requested']} at {row['Time Requested']}
+                            </div>
+                            <div style="color: {status_color}; font-weight: bold;">
+                                {row['Status']}
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.write("---")
+                        st.write(f"**Your Contact Email:** {row['Email']}")
+                        st.write(f"**Your Phone Number:** {row['Phone']}")
+                        st.write(f"**Adhara Number:** {row['Adhara Number']}")
+                        
+                        if row['Request Type'] in ["Hotel", "Travel & Hotel"]:
+                            st.write("---")
+                            st.write("**Hotel Details:**")
+                            st.write(f"**Hotel Name:** {row['Hotel Name']}")
+                            st.write(f"**Check In Date:** {row['Check In Date']}")
+                            st.write(f"**Check Out Date:** {row['Check Out Date']}")
+                        
+                        if row['Request Type'] in ["Travel", "Travel & Hotel"]:
+                            st.write("---")
+                            st.write("**Travel Details:**")
+                            st.write(f"**Travel Mode:** {row['Travel Mode']}")
+                            st.write(f"**From:** {row['From Location']}")
+                            st.write(f"**To:** {row['To Location']}")
+                            st.write(f"**Booking Date:** {row['Booking Date']}")
+                        
+                        if row['Remarks']:
+                            st.write("---")
+                            st.write("**Remarks:**")
+                            st.write(row['Remarks'])
+                
+                if not filtered_requests.empty:
+                    csv = filtered_requests.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        "Download Requests",
+                        csv,
+                        "my_travel_requests.csv",
+                        "text/csv",
+                        key='download-requests-csv'
+                    )
+            else:
+                st.info("You haven't made any travel/hotel requests yet.")
+        else:
+            st.info("No travel/hotel requests found in the system.")
+            
+    except Exception as e:
+        st.error(f"Error retrieving travel/hotel requests: {str(e)}")
 
 def main():
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
-    if 'admin' not in st.session_state:
-        st.session_state.admin = False
     if 'employee_name' not in st.session_state:
         st.session_state.employee_name = None
     if 'employee_code' not in st.session_state:
         st.session_state.employee_code = None
     if 'designation' not in st.session_state:
         st.session_state.designation = None
+    if 'employee_email' not in st.session_state:
+        st.session_state.employee_email = None
+    if 'employee_phone' not in st.session_state:
+        st.session_state.employee_phone = None
 
-    if not st.session_state.authenticated and not st.session_state.admin:
-        st.title("Ticket System - Login")
+    if not st.session_state.authenticated:
+        # Create centered layout for logo and heading
+        col1, col2, col3 = st.columns([1, 3, 1])
         
-        login_type = st.radio("Login as:", ("Employee", "Admin"), horizontal=True)
+        with col2:
+            # Display centered logo
+            try:
+                logo = Image.open("logo.png")
+                st.image(logo, use_container_width=True)
+            except FileNotFoundError:
+                st.warning("Logo image not found")
+            
+            # Centered heading with custom style
+            st.markdown("""
+            <div style='text-align: center; margin-bottom: 30px;'>
+                <h1 style='margin-bottom: 0;'>Employee Portal</h1>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Login form
+        employee_names = Person['Employee Name'].tolist()
         
-        if login_type == "Employee":
-            employee_names = Person['Employee Name'].tolist()
-            employee_name = st.selectbox("Select Your Name", employee_names, key="employee_select")
-            passkey = st.text_input("Password", type="password", key="passkey_input")
-            
-            if st.button("Log in", key="login_button"):
-                if authenticate_employee(employee_name, passkey):
-                    st.session_state.authenticated = True
-                    st.session_state.employee_name = employee_name
-                    st.session_state.employee_code = Person[Person['Employee Name'] == employee_name]['Employee Code'].values[0]
-                    st.session_state.designation = Person[Person['Employee Name'] == employee_name]['Designation'].values[0]
-                    st.rerun()
-                else:
-                    st.error("Invalid Employee Code. Please try again.")
-        else:
-            username = st.text_input("Admin Username", key="admin_username")
-            password = st.text_input("Admin Password", type="password", key="admin_password")
-            
-            if st.button("Admin Login", key="admin_login_button"):
-                if authenticate_admin(username, password):
-                    st.session_state.admin = True
-                    st.rerun()
-                else:
-                    st.error("Invalid admin credentials")
-    
-    elif st.session_state.authenticated:
-        # Employee view
+        # Create centered form
+        form_col1, form_col2, form_col3 = st.columns([1, 2, 1])
+        
+        with form_col2:
+            with st.container():
+                employee_name = st.selectbox(
+                    "Select Your Name", 
+                    employee_names, 
+                    key="employee_select"
+                )
+                passkey = st.text_input(
+                    "Password", 
+                    type="password", 
+                    key="passkey_input"
+                )
+                
+                login_button = st.button(
+                    "Log in", 
+                    key="login_button",
+                    use_container_width=True
+                )
+                
+                if login_button:
+                    if authenticate_employee(employee_name, passkey):
+                        st.session_state.authenticated = True
+                        st.session_state.employee_name = employee_name
+                        st.session_state.employee_code = Person[Person['Employee Name'] == employee_name]['Employee Code'].values[0]
+                        st.session_state.designation = Person[Person['Employee Name'] == employee_name]['Designation'].values[0]
+                        st.rerun()
+                    else:
+                        st.error("Invalid Employee Code. Please try again.")
+    else:
+        # Authenticated view
         st.sidebar.title(f"Welcome, {st.session_state.employee_name}")
         st.sidebar.write(f"Designation: {st.session_state.designation}")
         st.sidebar.write(f"Employee Code: {st.session_state.employee_code}")
@@ -546,30 +691,28 @@ def main():
             st.session_state.employee_name = None
             st.session_state.employee_code = None
             st.session_state.designation = None
+            st.session_state.employee_email = None
+            st.session_state.employee_phone = None
             st.rerun()
         
-        tab1, tab2 = st.tabs(["Raise New Complaint", "My Complaints"])
-        with tab1:
-            raise_complaint_page(
+        page = st.sidebar.radio(
+            "Navigation",
+            ["Travel & Hotel Booking", "Raise Support Ticket"],
+            index=0
+        )
+        
+        if page == "Raise Support Ticket":
+            raise_new_request_page(
                 st.session_state.employee_name,
                 st.session_state.employee_code,
                 st.session_state.designation
             )
-        with tab2:
-            view_complaints_page(st.session_state.employee_name)
-    
-    elif st.session_state.admin:
-        # Admin view
-        st.sidebar.title("Admin Panel")
-        if st.sidebar.button("Logout"):
-            st.session_state.admin = False
-            st.rerun()
-        
-        tab1, tab2 = st.tabs(["Dashboard", "Manage Complaints"])
-        with tab1:
-            admin_dashboard()
-        with tab2:
-            manage_complaints()
+        elif page == "Travel & Hotel Booking":
+            travel_hotel_booking_page(
+                st.session_state.employee_name,
+                st.session_state.employee_code,
+                st.session_state.designation
+            )
 
 if __name__ == "__main__":
     main()
