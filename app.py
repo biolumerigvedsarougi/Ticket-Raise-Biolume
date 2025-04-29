@@ -4,6 +4,9 @@ import pandas as pd
 from datetime import datetime
 import uuid
 from PIL import Image
+import base64
+import io
+
 # Hide Streamlit style elements
 hide_streamlit_style = """
     <style>
@@ -31,7 +34,17 @@ TICKET_SHEET_COLUMNS = [
     "Time Raised",
     "Resolution Notes",
     "Date Resolved",
-    "Priority"
+    "Priority",
+    "Attachment1",
+    "Attachment2",
+    "Attachment3",
+    "Attachment4",
+    "Attachment5",
+    "Attachment6",
+    "Attachment7",
+    "Attachment8",
+    "Attachment9",
+    "Attachment10"
 ]
 
 TRAVEL_HOTEL_COLUMNS = [
@@ -84,6 +97,13 @@ def generate_ticket_id():
 
 def generate_request_id():
     return f"REQ-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
+
+def file_to_base64(uploaded_file):
+    return base64.b64encode(uploaded_file.read()).decode('utf-8')
+
+def base64_to_file(base64_str, filename):
+    file_data = base64.b64decode(base64_str)
+    return io.BytesIO(file_data), filename
 
 def log_ticket_to_gsheet(conn, ticket_data):
     try:
@@ -165,6 +185,15 @@ def raise_new_request_page(employee_name, employee_code, designation):
                 help="Include all relevant details to help resolve your issue quickly"
             )
             
+            # File upload section
+            st.subheader("Attachments (Optional)")
+            uploaded_files = st.file_uploader(
+                "Upload supporting documents",
+                type=["pdf", "jpg", "jpeg", "png", "doc", "docx", "xls", "xlsx", "csv"],
+                accept_multiple_files=True,
+                help="You can upload up to 10 files (PDF, images, docs, spreadsheets)"
+            )
+            
             st.markdown("<small>*Required fields</small>", unsafe_allow_html=True)
             
             submitted = st.form_submit_button("Submit Ticket")
@@ -176,11 +205,21 @@ def raise_new_request_page(employee_name, employee_code, designation):
                     st.error("Please enter a valid email address")
                 elif not employee_phone.strip().isdigit() or len(employee_phone.strip()) < 10:
                     st.error("Please enter a valid 10-digit phone number")
+                elif uploaded_files and len(uploaded_files) > 10:
+                    st.error("Maximum 10 attachments allowed")
                 else:
                     with st.spinner("Submitting your ticket..."):
                         ticket_id = generate_ticket_id()
                         current_date = datetime.now().strftime("%d-%m-%Y")
                         current_time = datetime.now().strftime("%H:%M:%S")
+                        
+                        # Initialize all attachment columns
+                        attachments = {f"Attachment{i}": "" for i in range(1, 11)}
+                        
+                        # Process uploaded files
+                        if uploaded_files:
+                            for i, uploaded_file in enumerate(uploaded_files[:10]):  # Limit to 10 files
+                                attachments[f"Attachment{i+1}"] = file_to_base64(uploaded_file)
                         
                         ticket_data = {
                             "Ticket ID": ticket_id,
@@ -197,7 +236,8 @@ def raise_new_request_page(employee_name, employee_code, designation):
                             "Time Raised": current_time,
                             "Resolution Notes": "",
                             "Date Resolved": "",
-                            "Priority": priority
+                            "Priority": priority,
+                            **attachments
                         }
                         
                         ticket_df = pd.DataFrame([ticket_data])
@@ -491,6 +531,24 @@ def view_my_support_requests(employee_name):
                         st.write("---")
                         st.write("**Details:**")
                         st.write(row['Details'])
+                        
+                        # Display attachments if any
+                        attachments = []
+                        for i in range(1, 11):
+                            attachment_col = f"Attachment{i}"
+                            if row[attachment_col] and pd.notna(row[attachment_col]) and row[attachment_col].strip():
+                                attachments.append((i, row[attachment_col]))
+                        
+                        if attachments:
+                            st.write("---")
+                            st.write("**Attachments:**")
+                            for idx, attachment in attachments:
+                                st.download_button(
+                                    label=f"Download Attachment {idx}",
+                                    data=base64.b64decode(attachment),
+                                    file_name=f"attachment_{row['Ticket ID']}_{idx}",
+                                    mime="application/octet-stream"
+                                )
                         
                         if row['Status'] == "Resolved" and row['Resolution Notes']:
                             st.write("---")
