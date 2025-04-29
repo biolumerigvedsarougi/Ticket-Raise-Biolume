@@ -697,7 +697,7 @@ def main():
         
         page = st.sidebar.radio(
             "Navigation",
-            ["Raise Support Ticket", "Travel & Hotel Booking"],
+            ["Travel & Hotel Booking", "Raise Support Ticket"],
             index=0
         )
         
