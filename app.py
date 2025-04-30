@@ -642,7 +642,7 @@ def main():
             # Centered heading with custom style
             st.markdown("""
             <div style='text-align: center; margin-bottom: 30px;'>
-                <h1 style='margin-bottom: 0;'>Employee Portal</h1>
+                <h1 style='margin-bottom: 0;'>Employee Ticket Portal</h1>
             </div>
             """, unsafe_allow_html=True)
 
